@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
 python-multipart
-transformers
+transformers==4.57.6
 torch
 sentencepiece
