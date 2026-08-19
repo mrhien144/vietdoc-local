@@ -1,9 +1,9 @@
-name: Publish VietDoc Local
+name: Publish VietDoc Local V2 Dev
 
 on:
   push:
     branches:
-      - main
+      - v2-dev
   workflow_dispatch:
 
 permissions:
@@ -25,9 +25,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and publish Docker image
+      - name: Build and publish V2 development image
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
-          tags: ghcr.io/mrhien144/vietdoc-local:latest
+          tags: ghcr.io/mrhien144/vietdoc-local:v2-dev
