@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VietDoc Local</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      margin: 0;
+      padding: 30px;
+      color: #222;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 5px 25px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 25px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 300px;
+      box-sizing: border-box;
+      padding: 15px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      resize: vertical;
+    }
+
+    .buttons {
+      margin-top: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    .footer {
+      margin-top: 25px;
+      font-size: 13px;
+      color: #777;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>VietDoc Local</h1>
+
+  <div class="subtitle">
+    Công cụ xử lý văn bản tiếng Việt chạy cục bộ trên SoloHost.
+  </div>
+
+  <textarea id="text" placeholder="Nhập hoặc dán văn bản vào đây..."></textarea>
+
+  <div class="buttons">
+    <button onclick="cleanText()">Chuẩn hóa văn bản</button>
+    <button onclick="upperText()">VIẾT HOA</button>
+    <button onclick="lowerText()">viết thường</button>
+    <button onclick="copyText()">Sao chép</button>
+    <button onclick="clearText()">Xóa</button>
+  </div>
+
+  <div class="footer">
+    VietDoc Local • Runs locally on your SoloHost node
+  </div>
+</div>
+
+<script>
+function cleanText() {
+  const box = document.getElementById("text");
+
+  let text = box.value;
+
+  text = text
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  box.value = text;
+}
+
+function upperText() {
+  const box = document.getElementById("text");
+  box.value = box.value.toUpperCase();
+}
+
+function lowerText() {
+  const box = document.getElementById("text");
+  box.value = box.value.toLowerCase();
+}
+
+async function copyText() {
+  const box = document.getElementById("text");
+
+  try {
+    await navigator.clipboard.writeText(box.value);
+    alert("Đã sao chép văn bản.");
+  } catch {
+    box.select();
+    document.execCommand("copy");
+    alert("Đã sao chép văn bản.");
+  }
+}
+
+function clearText() {
+  document.getElementById("text").value = "";
+}
+</script>
+
+</body>
+</html>
