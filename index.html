@@ -274,10 +274,10 @@ textarea:focus {
       📝 Soạn thảo
     </div>
 
-    <div class="menu-item">
-      ✨ Thêm dấu
-      <span class="badge">Soon</span>
-    </div>
+    <div class="menu-item" onclick="addDiacritics()">
+  ✨ Thêm dấu
+  <span class="badge">AI</span>
+</div>
 
     <div class="menu-item">
       🌐 Dịch thuật
@@ -410,7 +410,7 @@ textarea:focus {
         <div class="feature">
           <h3>🇻🇳 Tự động thêm dấu</h3>
           <p>Khôi phục dấu tiếng Việt cho văn bản nhập không dấu.</p>
-          <button class="ai" onclick="comingSoon('Tự động thêm dấu tiếng Việt')">
+          <button class="ai" onclick="addDiacritics()">
             Thêm dấu
           </button>
         </div>
@@ -527,7 +527,58 @@ async function apiText(endpoint) {
 function cleanText() {
   apiText("/api/text/clean");
 }
+async function addDiacritics() {
 
+  if (!box.value.trim()) {
+    showMessage("Chưa có văn bản để thêm dấu.");
+    return;
+  }
+
+  saveHistory();
+
+  showMessage(
+    "Đang phục hồi dấu tiếng Việt. Lần đầu có thể mất vài phút để tải mô hình..."
+  );
+
+  try {
+
+    const response = await fetch(
+      "/api/text/diacritics",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          text: box.value
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Không thể thêm dấu."
+      );
+    }
+
+    box.value = result.text;
+
+    updateStats();
+
+    showMessage(
+      "Đã tự động phục hồi dấu tiếng Việt."
+    );
+
+  } catch (error) {
+
+    showMessage(
+      "Lỗi thêm dấu: " + error.message
+    );
+
+  }
+}
 
 function upperText() {
   apiText("/api/text/uppercase");
