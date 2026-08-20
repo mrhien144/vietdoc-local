@@ -1,140 +1,854 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VietDoc Local</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VietDoc Local 2.0</title>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f7fb;
-      margin: 0;
-      padding: 30px;
-      color: #222;
-    }
+<style>
+* {
+  box-sizing: border-box;
+}
 
-    .container {
-      max-width: 900px;
-      margin: auto;
-      background: white;
-      padding: 30px;
-      border-radius: 16px;
-      box-shadow: 0 5px 25px rgba(0,0,0,0.08);
-    }
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f4f6fb;
+  color: #1f2937;
+}
 
-    h1 {
-      margin-top: 0;
-    }
+.app {
+  display: flex;
+  min-height: 100vh;
+}
 
-    .subtitle {
-      color: #666;
-      margin-bottom: 25px;
-    }
+/* SIDEBAR */
 
-    textarea {
-      width: 100%;
-      min-height: 300px;
-      box-sizing: border-box;
-      padding: 15px;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      resize: vertical;
-    }
+.sidebar {
+  width: 230px;
+  background: #111827;
+  color: white;
+  padding: 22px 15px;
+}
 
-    .buttons {
-      margin-top: 15px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
+.brand {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
 
-    button {
-      padding: 10px 18px;
-      border: 0;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 15px;
-    }
+.version {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-bottom: 28px;
+}
 
-    button:hover {
-      opacity: 0.85;
-    }
+.menu-title {
+  color: #9ca3af;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin: 20px 10px 8px;
+}
 
-    .footer {
-      margin-top: 25px;
-      font-size: 13px;
-      color: #777;
-    }
-  </style>
+.menu-item {
+  padding: 11px 12px;
+  border-radius: 8px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.menu-item:hover,
+.menu-item.active {
+  background: #374151;
+}
+
+.badge {
+  float: right;
+  font-size: 10px;
+  background: #4b5563;
+  padding: 3px 6px;
+  border-radius: 5px;
+}
+
+/* MAIN */
+
+.main {
+  flex: 1;
+  padding: 25px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.header p {
+  margin: 5px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.status {
+  background: #dcfce7;
+  color: #166534;
+  padding: 7px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* CARDS */
+
+.card {
+  background: white;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 3px 15px rgba(0,0,0,.06);
+  margin-bottom: 18px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+button {
+  border: 0;
+  padding: 9px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  background: #eef2f7;
+}
+
+button:hover {
+  background: #e2e8f0;
+}
+
+button.primary {
+  background: #4f46e5;
+  color: white;
+}
+
+button.ai {
+  background: #7c3aed;
+  color: white;
+}
+
+button.voice {
+  background: #0f766e;
+  color: white;
+}
+
+textarea {
+  width: 100%;
+  min-height: 350px;
+  resize: vertical;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  font-size: 16px;
+  line-height: 1.6;
+  outline: none;
+}
+
+textarea:focus {
+  border-color: #6366f1;
+}
+
+/* STATS */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.stat {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 3px;
+}
+
+/* FEATURE GRID */
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.feature {
+  border: 1px solid #e5e7eb;
+  border-radius: 11px;
+  padding: 14px;
+}
+
+.feature h3 {
+  font-size: 15px;
+  margin: 0 0 5px;
+}
+
+.feature p {
+  font-size: 12px;
+  color: #6b7280;
+  min-height: 30px;
+}
+
+.feature button {
+  width: 100%;
+}
+
+.notice {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 10px;
+}
+
+.message {
+  min-height: 22px;
+  font-size: 13px;
+  margin-top: 10px;
+  color: #4f46e5;
+}
+
+/* FOOTER */
+
+.footer {
+  text-align: center;
+  color: #6b7280;
+  padding: 18px;
+  font-size: 12px;
+}
+
+@media(max-width:900px) {
+  .sidebar {
+    display: none;
+  }
+
+  .features {
+    grid-template-columns: 1fr;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2,1fr);
+  }
+}
+</style>
 </head>
 
 <body>
 
-<div class="container">
-  <h1>VietDoc Local</h1>
+<div class="app">
 
-  <div class="subtitle">
-    Công cụ xử lý văn bản tiếng Việt chạy cục bộ trên SoloHost.
-  </div>
+  <aside class="sidebar">
 
-  <textarea id="text" placeholder="Nhập hoặc dán văn bản vào đây..."></textarea>
+    <div class="brand">VietDoc Local</div>
+    <div class="version">Version 2.0 Development</div>
 
-  <div class="buttons">
-    <button onclick="cleanText()">Chuẩn hóa văn bản</button>
-    <button onclick="upperText()">VIẾT HOA</button>
-    <button onclick="lowerText()">viết thường</button>
-    <button onclick="copyText()">Sao chép</button>
-    <button onclick="clearText()">Xóa</button>
-  </div>
+    <div class="menu-title">Văn bản</div>
 
-  <div class="footer">
-    VietDoc Local • Runs locally on your SoloHost node
-  </div>
+    <div class="menu-item active">
+      📝 Soạn thảo
+    </div>
+
+    <div class="menu-item" onclick="addDiacritics()">
+  ✨ Thêm dấu
+  <span class="badge">AI</span>
 </div>
 
+    <div class="menu-item">
+  🌐 Dịch Việt ↔ Anh
+  <span class="badge">AI</span>
+</div>
+
+    <div class="menu-title">AI & Giọng nói</div>
+
+    <div class="menu-item">
+      🎙 Giọng nói → Văn bản
+      <span class="badge">Soon</span>
+    </div>
+
+    <div class="menu-item">
+      🔊 Văn bản → Giọng nói
+      <span class="badge">Soon</span>
+    </div>
+
+    <div class="menu-item">
+      🤖 AI Assistant
+      <span class="badge">Soon</span>
+    </div>
+
+    <div class="menu-title">Tài liệu</div>
+
+    <div class="menu-item">
+      📄 Word / PDF
+      <span class="badge">Soon</span>
+    </div>
+
+  </aside>
+
+  <main class="main">
+
+    <div class="header">
+
+      <div>
+        <h1>VietDoc Local</h1>
+        <p>Trợ lý xử lý văn bản tiếng Việt chạy cục bộ trên SoloHost</p>
+      </div>
+
+      <div class="status">
+        ● LOCAL
+      </div>
+
+    </div>
+
+    <div class="card">
+
+      <div class="toolbar">
+
+        <button class="primary" onclick="cleanText()">
+          Chuẩn hóa
+        </button>
+
+        <button onclick="upperText()">
+          VIẾT HOA
+        </button>
+
+        <button onclick="lowerText()">
+          viết thường
+        </button>
+
+        <button onclick="sentenceCase()">
+          Viết hoa đầu câu
+        </button>
+
+        <button onclick="removeBlankLines()">
+          Xóa dòng trống
+        </button>
+
+        <button onclick="undoText()">
+          ↶ Hoàn tác
+        </button>
+
+        <button onclick="copyText()">
+          Sao chép
+        </button>
+
+        <button onclick="downloadText()">
+          Tải TXT
+        </button>
+
+        <button onclick="clearText()">
+          Xóa
+        </button>
+
+      </div>
+
+      <textarea
+        id="text"
+        placeholder="Nhập hoặc dán văn bản vào đây..."
+        oninput="updateStats()"
+      ></textarea>
+
+      <div class="stats">
+
+        <div class="stat">
+          <div class="stat-value" id="words">0</div>
+          <div class="stat-label">TỪ</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-value" id="characters">0</div>
+          <div class="stat-label">KÝ TỰ</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-value" id="charactersNoSpace">0</div>
+          <div class="stat-label">KÝ TỰ KHÔNG CÁCH</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-value" id="lines">0</div>
+          <div class="stat-label">DÒNG</div>
+        </div>
+
+      </div>
+
+      <div class="message" id="message"></div>
+
+    </div>
+
+    <div class="card">
+
+      <h2>Công cụ thông minh</h2>
+
+      <div class="features">
+
+        <div class="feature">
+          <h3>🇻🇳 Tự động thêm dấu</h3>
+          <p>Khôi phục dấu tiếng Việt cho văn bản nhập không dấu.</p>
+          <button class="ai" onclick="addDiacritics()">
+            Thêm dấu
+          </button>
+        </div>
+
+       <div class="feature">
+  <h3>🌐 Dịch Việt ↔ Anh</h3>
+  <p>Dịch hai chiều giữa tiếng Việt và tiếng Anh.</p>
+
+  <select id="translationDirection"
+          style="width:100%;padding:9px;margin-bottom:8px;border-radius:8px;border:1px solid #d1d5db;">
+    <option value="vi-en">🇻🇳 Việt → 🇬🇧 Anh</option>
+    <option value="en-vi">🇬🇧 Anh → 🇻🇳 Việt</option>
+  </select>
+
+  <button class="ai" onclick="translateText()">
+    Dịch văn bản
+  </button>
+</div>
+
+        <div class="feature">
+          <h3>🎙 Giọng nói → Văn bản</h3>
+          <p>Nhận dạng giọng nói tiếng Việt và chuyển thành văn bản.</p>
+          <button class="voice" onclick="comingSoon('Nhận dạng giọng nói')">
+            Bắt đầu ghi âm
+          </button>
+        </div>
+
+        <div class="feature">
+          <h3>🔊 Văn bản → Giọng nói</h3>
+          <p>Đọc nội dung văn bản bằng giọng nói.</p>
+          <button onclick="speakText()">
+            Đọc văn bản
+          </button>
+        </div>
+
+        <div class="feature">
+          <h3>📄 Word / PDF</h3>
+          <p>Mở, đọc, làm sạch và xử lý tài liệu Word/PDF.</p>
+          <button onclick="comingSoon('Xử lý Word và PDF')">
+            Mở tài liệu
+          </button>
+        </div>
+
+        <div class="feature">
+          <h3>🤖 AI Assistant</h3>
+          <p>Tóm tắt, viết lại, phân tích và hỏi đáp nội dung.</p>
+          <button class="ai" onclick="comingSoon('AI Assistant')">
+            Mở AI
+          </button>
+        </div>
+
+      </div>
+
+      <div class="notice">
+        Các công cụ AI nâng cao sẽ được kích hoạt lần lượt trong các bản phát triển tiếp theo.
+      </div>
+
+    </div>
+
+    <div class="footer">
+      © 2026 Bản quyền thuộc về Nguyễn Sỹ Hiển.
+      <br>
+      Local-first Vietnamese Document & AI Utility
+    </div>
+
+  </main>
+
+</div>
+
+
 <script>
-function cleanText() {
-  const box = document.getElementById("text");
 
-  let text = box.value;
+const box = document.getElementById("text");
 
-  text = text
-    .replace(/[ \t]+/g, " ")
-    .replace(/ *\n */g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+let previousText = "";
 
-  box.value = text;
+
+function saveHistory() {
+  previousText = box.value;
 }
 
-function upperText() {
-  const box = document.getElementById("text");
-  box.value = box.value.toUpperCase();
-}
 
-function lowerText() {
-  const box = document.getElementById("text");
-  box.value = box.value.toLowerCase();
-}
+async function apiText(endpoint) {
 
-async function copyText() {
-  const box = document.getElementById("text");
+  saveHistory();
 
   try {
-    await navigator.clipboard.writeText(box.value);
-    alert("Đã sao chép văn bản.");
-  } catch {
-    box.select();
-    document.execCommand("copy");
-    alert("Đã sao chép văn bản.");
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        text: box.value
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("API error");
+    }
+
+    const result = await response.json();
+
+    if (result.text !== undefined) {
+      box.value = result.text;
+    }
+
+    updateStats();
+
+  } catch (error) {
+
+    showMessage(
+      "Không thể kết nối backend. Vui lòng kiểm tra VietDoc Local."
+    );
+
   }
 }
 
-function clearText() {
-  document.getElementById("text").value = "";
+
+function cleanText() {
+  apiText("/api/text/clean");
 }
+async function addDiacritics() {
+
+  if (!box.value.trim()) {
+    showMessage("Chưa có văn bản để thêm dấu.");
+    return;
+  }
+
+  saveHistory();
+
+  showMessage(
+    "Đang phục hồi dấu tiếng Việt. Lần đầu có thể mất vài phút để tải mô hình..."
+  );
+
+  try {
+
+    const response = await fetch(
+      "/api/text/diacritics",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          text: box.value
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Không thể thêm dấu."
+      );
+    }
+
+    box.value = result.text;
+
+    updateStats();
+
+    showMessage(
+      "Đã tự động phục hồi dấu tiếng Việt."
+    );
+
+  } catch (error) {
+
+    showMessage(
+      "Lỗi thêm dấu: " + error.message
+    );
+
+  }
+}
+async function translateText() {
+
+  if (!box.value.trim()) {
+    showMessage("Chưa có văn bản để dịch.");
+    return;
+  }
+
+  saveHistory();
+
+  const direction =
+    document.getElementById("translationDirection").value;
+
+  const directionText =
+    direction === "vi-en"
+      ? "Việt → Anh"
+      : "Anh → Việt";
+
+  showMessage(
+    "Đang dịch " + directionText +
+    ". Lần đầu có thể mất vài phút để tải model..."
+  );
+
+  try {
+
+    const response = await fetch(
+      "/api/translate",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          text: box.value,
+          direction: direction
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Không thể dịch văn bản."
+      );
+    }
+
+    box.value = result.text;
+
+    updateStats();
+
+    showMessage(
+      "Đã dịch xong " + directionText + "."
+    );
+
+  } catch (error) {
+
+    showMessage(
+      "Lỗi dịch: " + error.message
+    );
+
+  }
+}
+function upperText() {
+  apiText("/api/text/uppercase");
+}
+
+
+function lowerText() {
+  apiText("/api/text/lowercase");
+}
+
+
+function sentenceCase() {
+
+  saveHistory();
+
+  let value = box.value.toLowerCase();
+
+  value = value.replace(
+    /(^\s*[a-zà-ỹ]|[.!?]\s+[a-zà-ỹ])/g,
+    function(letter) {
+      return letter.toUpperCase();
+    }
+  );
+
+  box.value = value;
+
+  updateStats();
+}
+
+
+function removeBlankLines() {
+
+  saveHistory();
+
+  box.value = box.value
+    .replace(/\n\s*\n\s*\n+/g, "\n\n")
+    .trim();
+
+  updateStats();
+}
+
+
+function undoText() {
+
+  const current = box.value;
+
+  box.value = previousText;
+
+  previousText = current;
+
+  updateStats();
+}
+
+
+async function copyText() {
+
+  try {
+
+    await navigator.clipboard.writeText(box.value);
+
+    showMessage("Đã sao chép văn bản.");
+
+  } catch {
+
+    box.select();
+
+    document.execCommand("copy");
+
+    showMessage("Đã sao chép văn bản.");
+
+  }
+}
+
+
+function downloadText() {
+
+  const blob = new Blob(
+    [box.value],
+    { type: "text/plain;charset=utf-8" }
+  );
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+
+  a.href = url;
+
+  a.download = "vietdoc-local.txt";
+
+  a.click();
+
+  URL.revokeObjectURL(url);
+
+  showMessage("Đã tạo file TXT.");
+}
+
+
+function clearText() {
+
+  saveHistory();
+
+  box.value = "";
+
+  updateStats();
+
+  showMessage("Đã xóa nội dung.");
+}
+
+
+function speakText() {
+
+  if (!box.value.trim()) {
+
+    showMessage("Chưa có nội dung để đọc.");
+
+    return;
+  }
+
+  speechSynthesis.cancel();
+
+  const utterance = new SpeechSynthesisUtterance(
+    box.value
+  );
+
+  utterance.lang = "vi-VN";
+
+  speechSynthesis.speak(utterance);
+
+  showMessage("Đang đọc văn bản...");
+}
+
+
+async function updateStats() {
+
+  try {
+
+    const response = await fetch(
+      "/api/text/stats",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          text: box.value
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    document.getElementById("words").textContent =
+      result.words;
+
+    document.getElementById("characters").textContent =
+      result.characters;
+
+    document.getElementById("charactersNoSpace").textContent =
+      result.characters_without_spaces;
+
+    document.getElementById("lines").textContent =
+      result.lines;
+
+  } catch {
+
+    const text = box.value;
+
+    document.getElementById("characters").textContent =
+      text.length;
+
+  }
+
+}
+
+
+function comingSoon(feature) {
+
+  showMessage(
+    feature +
+    " đang được chuẩn bị cho VietDoc Local 2.0."
+  );
+
+}
+
+
+function showMessage(text) {
+
+  const el =
+    document.getElementById("message");
+
+  el.textContent = text;
+
+  setTimeout(
+    () => el.textContent = "",
+    4000
+  );
+
+}
+
+
+updateStats();
+
 </script>
 
 </body>
