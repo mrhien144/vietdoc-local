@@ -280,9 +280,9 @@ textarea:focus {
 </div>
 
     <div class="menu-item">
-      🌐 Dịch thuật
-      <span class="badge">Soon</span>
-    </div>
+  🌐 Dịch Việt ↔ Anh
+  <span class="badge">AI</span>
+</div>
 
     <div class="menu-title">AI & Giọng nói</div>
 
@@ -415,13 +415,20 @@ textarea:focus {
           </button>
         </div>
 
-        <div class="feature">
-          <h3>🌐 Dịch thuật</h3>
-          <p>Dịch tiếng Việt sang tiếng Anh và nhiều ngôn ngữ khác.</p>
-          <button class="ai" onclick="comingSoon('Dịch thuật đa ngôn ngữ')">
-            Dịch văn bản
-          </button>
-        </div>
+       <div class="feature">
+  <h3>🌐 Dịch Việt ↔ Anh</h3>
+  <p>Dịch hai chiều giữa tiếng Việt và tiếng Anh.</p>
+
+  <select id="translationDirection"
+          style="width:100%;padding:9px;margin-bottom:8px;border-radius:8px;border:1px solid #d1d5db;">
+    <option value="vi-en">🇻🇳 Việt → 🇬🇧 Anh</option>
+    <option value="en-vi">🇬🇧 Anh → 🇻🇳 Việt</option>
+  </select>
+
+  <button class="ai" onclick="translateText()">
+    Dịch văn bản
+  </button>
+</div>
 
         <div class="feature">
           <h3>🎙 Giọng nói → Văn bản</h3>
@@ -579,7 +586,68 @@ async function addDiacritics() {
 
   }
 }
+async function translateText() {
 
+  if (!box.value.trim()) {
+    showMessage("Chưa có văn bản để dịch.");
+    return;
+  }
+
+  saveHistory();
+
+  const direction =
+    document.getElementById("translationDirection").value;
+
+  const directionText =
+    direction === "vi-en"
+      ? "Việt → Anh"
+      : "Anh → Việt";
+
+  showMessage(
+    "Đang dịch " + directionText +
+    ". Lần đầu có thể mất vài phút để tải model..."
+  );
+
+  try {
+
+    const response = await fetch(
+      "/api/translate",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          text: box.value,
+          direction: direction
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Không thể dịch văn bản."
+      );
+    }
+
+    box.value = result.text;
+
+    updateStats();
+
+    showMessage(
+      "Đã dịch xong " + directionText + "."
+    );
+
+  } catch (error) {
+
+    showMessage(
+      "Lỗi dịch: " + error.message
+    );
+
+  }
+}
 function upperText() {
   apiText("/api/text/uppercase");
 }
