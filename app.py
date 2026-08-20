@@ -68,8 +68,10 @@ def ensure_argos_pair(from_code: str, to_code: str):
                 f"{from_code} -> {to_code}."
             )
 
-        package_to_install.install()
-        @app.get("/")
+                package_to_install.install()
+
+
+@app.get("/")
 def home():
     return FileResponse(BASE_DIR / "index.html")
 
