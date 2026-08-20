@@ -1,7 +1,10 @@
 from pathlib import Path
 import re
 from functools import lru_cache
+from threading import Lock
 
+from argostranslate import package as argos_package
+from argostranslate import translate as argos_translate
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -16,13 +19,57 @@ app = FastAPI(
 BASE_DIR = Path(__file__).resolve().parent
 
 DIACRITIC_MODEL_ID = "nrl-ai/vn-diacritic-small"
-
+ARGOS_INSTALL_LOCK = Lock()
 
 class TextRequest(BaseModel):
     text: str
 
+class TranslationRequest(BaseModel):
+    text: str
+    direction: str
+def argos_pair_installed(from_code: str, to_code: str) -> bool:
+    installed_packages = argos_package.get_installed_packages()
 
-@app.get("/")
+    return any(
+        pkg.from_code == from_code
+        and pkg.to_code == to_code
+        for pkg in installed_packages
+    )
+
+
+def ensure_argos_pair(from_code: str, to_code: str):
+    if argos_pair_installed(from_code, to_code):
+        return
+
+    with ARGOS_INSTALL_LOCK:
+
+        if argos_pair_installed(from_code, to_code):
+            return
+
+        argos_package.update_package_index()
+
+        available_packages = (
+            argos_package.get_available_packages()
+        )
+
+        package_to_install = next(
+            (
+                pkg
+                for pkg in available_packages
+                if pkg.from_code == from_code
+                and pkg.to_code == to_code
+            ),
+            None
+        )
+
+        if package_to_install is None:
+            raise RuntimeError(
+                f"Không tìm thấy model dịch "
+                f"{from_code} -> {to_code}."
+            )
+
+        package_to_install.install()
+        @app.get("/")
 def home():
     return FileResponse(BASE_DIR / "index.html")
 
@@ -36,7 +83,63 @@ def health():
         "diacritic_model": DIACRITIC_MODEL_ID
     }
 
+@app.post("/api/translate")
+def translate_text(data: TranslationRequest):
 
+    text = data.text.strip()
+
+    if not text:
+        raise HTTPException(
+            status_code=400,
+            detail="Chưa có văn bản để dịch."
+        )
+
+    directions = {
+        "vi-en": ("vi", "en"),
+        "en-vi": ("en", "vi")
+    }
+
+    language_pair = directions.get(
+        data.direction
+    )
+
+    if language_pair is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Chỉ hỗ trợ dịch Việt → Anh "
+                "và Anh → Việt."
+            )
+        )
+
+    from_code, to_code = language_pair
+
+    try:
+
+        ensure_argos_pair(
+            from_code,
+            to_code
+        )
+
+        translated = argos_translate.translate(
+            data.text,
+            from_code,
+            to_code
+        )
+
+        return {
+            "text": translated,
+            "direction": data.direction
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Không thể dịch văn bản. "
+                "Vui lòng kiểm tra model dịch."
+            )
+        ) from exc
 @app.post("/api/text/clean")
 def clean_text(data: TextRequest):
     text = data.text
