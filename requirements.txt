@@ -5,3 +5,4 @@ transformers==4.57.6
 torch
 sentencepiece
 argostranslate
+vieneu==3.3.0
