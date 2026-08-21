@@ -439,12 +439,44 @@ textarea:focus {
         </div>
 
         <div class="feature">
-          <h3>🔊 Văn bản → Giọng nói</h3>
-          <p>Đọc nội dung văn bản bằng giọng nói.</p>
-          <button onclick="speakText()">
-            Đọc văn bản
-          </button>
-        </div>
+  <h3>🔊 Văn bản → Giọng nói AI</h3>
+  <p>Chuyển văn bản thành giọng đọc AI tiếng Việt tự nhiên.</p>
+
+  <select id="ttsVoice"
+          style="width:100%;padding:9px;margin-bottom:8px;border-radius:8px;border:1px solid #d1d5db;">
+    <option value="">Đang tải danh sách giọng AI...</option>
+  </select>
+
+  <select id="ttsStyle"
+          style="width:100%;padding:9px;margin-bottom:8px;border-radius:8px;border:1px solid #d1d5db;">
+    <option value="tu_nhien">Tự nhiên</option>
+    <option value="tin_tuc">Tin tức</option>
+    <option value="doc_truyen">Kể chuyện</option>
+  </select>
+
+  <button class="ai" onclick="generateTTS()">
+    ▶ Đọc AI
+  </button>
+
+  <div style="display:flex;gap:6px;margin-top:8px;">
+    <button onclick="pauseTTS()" style="flex:1;">
+      ⏸ Tạm dừng
+    </button>
+
+    <button onclick="resumeTTS()" style="flex:1;">
+      ▶ Tiếp tục
+    </button>
+
+    <button onclick="stopTTS()" style="flex:1;">
+      ⏹ Dừng
+    </button>
+  </div>
+
+  <audio id="ttsAudio"
+         controls
+         style="width:100%;margin-top:10px;display:none;">
+  </audio>
+</div>
 
         <div class="feature">
           <h3>📄 Word / PDF</h3>
@@ -777,6 +809,144 @@ function speakText() {
 
   showMessage("Đang đọc văn bản...");
 }
+
+let currentTTSUrl = null;
+
+async function loadTTSVoices() {
+  const voiceSelect = document.getElementById("ttsVoice");
+
+  try {
+    const response = await fetch("/api/tts/voices");
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Không thể tải danh sách giọng AI."
+      );
+    }
+
+    voiceSelect.innerHTML = "";
+
+    result.voices.forEach((voice) => {
+      const option = document.createElement("option");
+      option.value = voice.id;
+      option.textContent = voice.label;
+      voiceSelect.appendChild(option);
+    });
+
+    if (!result.voices.length) {
+      voiceSelect.innerHTML =
+        '<option value="">Không tìm thấy giọng AI</option>';
+    }
+
+  } catch (error) {
+    voiceSelect.innerHTML =
+      '<option value="">Lỗi tải giọng AI</option>';
+
+    showMessage(
+      "Lỗi tải danh sách giọng AI: " + error.message
+    );
+  }
+}
+
+
+async function generateTTS() {
+  if (!box.value.trim()) {
+    showMessage("Chưa có văn bản để đọc.");
+    return;
+  }
+
+  const voice = document.getElementById("ttsVoice").value;
+  const style = document.getElementById("ttsStyle").value;
+  const audio = document.getElementById("ttsAudio");
+
+  showMessage(
+    "Đang tạo giọng đọc AI... Lần đầu có thể mất một chút thời gian."
+  );
+
+  try {
+    const response = await fetch("/api/tts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        text: box.value,
+        voice: voice || null,
+        style: style
+      })
+    });
+
+    if (!response.ok) {
+      let detail = "Không thể tạo giọng đọc AI.";
+
+      try {
+        const result = await response.json();
+        detail = result.detail || detail;
+      } catch (_) {
+      }
+
+      throw new Error(detail);
+    }
+
+    const blob = await response.blob();
+
+    if (currentTTSUrl) {
+      URL.revokeObjectURL(currentTTSUrl);
+    }
+
+    currentTTSUrl = URL.createObjectURL(blob);
+
+    audio.src = currentTTSUrl;
+    audio.style.display = "block";
+    audio.load();
+
+    await audio.play();
+
+    showMessage("Đang phát giọng đọc AI.");
+
+  } catch (error) {
+    showMessage(
+      "Lỗi giọng đọc AI: " + error.message
+    );
+  }
+}
+
+
+function pauseTTS() {
+  const audio = document.getElementById("ttsAudio");
+
+  if (!audio.paused) {
+    audio.pause();
+    showMessage("Đã tạm dừng giọng đọc AI.");
+  }
+}
+
+
+function resumeTTS() {
+  const audio = document.getElementById("ttsAudio");
+
+  if (audio.src) {
+    audio.play();
+    showMessage("Tiếp tục phát giọng đọc AI.");
+  }
+}
+
+
+function stopTTS() {
+  const audio = document.getElementById("ttsAudio");
+
+  audio.pause();
+  audio.currentTime = 0;
+
+  showMessage("Đã dừng giọng đọc AI.");
+}
+
+
+document.addEventListener(
+  "DOMContentLoaded",
+  loadTTSVoices
+);
 
 
 async function updateStats() {
