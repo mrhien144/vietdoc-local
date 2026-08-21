@@ -247,7 +247,7 @@ def text_to_speech(data: TTSRequest):
                 "Vui lòng kiểm tra model TTS."
             )
         ) from exc
-    @app.post("/api/text/clean")
+@app.post("/api/text/clean")
 def clean_text(data: TextRequest):
     text = data.text
 
