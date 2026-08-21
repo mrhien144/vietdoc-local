@@ -1,4 +1,5 @@
 from pathlib import Path
+import io
 import re
 from functools import lru_cache
 from threading import Lock
@@ -6,7 +7,7 @@ from threading import Lock
 from argostranslate import package as argos_package
 from argostranslate import translate as argos_translate
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 
@@ -20,13 +21,25 @@ BASE_DIR = Path(__file__).resolve().parent
 
 DIACRITIC_MODEL_ID = "nrl-ai/vn-diacritic-small"
 ARGOS_INSTALL_LOCK = Lock()
-
+TTS_LOCK = Lock()
 class TextRequest(BaseModel):
     text: str
 
 class TranslationRequest(BaseModel):
     text: str
     direction: str
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str | None = None
+    style: str = "tu_nhien"
+
+
+@lru_cache(maxsize=1)
+def get_tts_engine():
+    from vieneu import Vieneu
+
+    return Vieneu()
 def argos_pair_installed(from_code: str, to_code: str) -> bool:
     installed_packages = argos_package.get_installed_packages()
 
@@ -142,7 +155,99 @@ def translate_text(data: TranslationRequest):
                 "Vui lòng kiểm tra model dịch."
             )
         ) from exc
-@app.post("/api/text/clean")
+@app.get("/api/tts/voices")
+def tts_voices():
+    try:
+        engine = get_tts_engine()
+
+        voices = [
+            {
+                "label": label,
+                "id": voice_id
+            }
+            for label, voice_id in engine.list_preset_voices()
+        ]
+
+        return {
+            "voices": voices,
+            "styles": [
+                {"id": "tu_nhien", "label": "Tự nhiên"},
+                {"id": "tin_tuc", "label": "Tin tức"},
+                {"id": "doc_truyen", "label": "Kể chuyện"}
+            ]
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Không thể tải danh sách giọng AI."
+        ) from exc
+
+
+@app.post("/api/tts")
+def text_to_speech(data: TTSRequest):
+
+    text = data.text.strip()
+
+    if not text:
+        raise HTTPException(
+            status_code=400,
+            detail="Chưa có văn bản để đọc."
+        )
+
+    allowed_styles = {
+        "tu_nhien",
+        "tin_tuc",
+        "doc_truyen"
+    }
+
+    style = (
+        data.style
+        if data.style in allowed_styles
+        else "tu_nhien"
+    )
+
+    try:
+        with TTS_LOCK:
+            engine = get_tts_engine()
+
+            audio = engine.infer(
+                text,
+                voice=data.voice or None,
+                style=style
+            )
+
+            import soundfile as sf
+
+            buffer = io.BytesIO()
+
+            sf.write(
+                buffer,
+                audio,
+                engine.sample_rate,
+                format="WAV"
+            )
+
+            wav_bytes = buffer.getvalue()
+
+        return Response(
+            content=wav_bytes,
+            media_type="audio/wav",
+            headers={
+                "Content-Disposition":
+                    'inline; filename="vietdoc-ai.wav"'
+            }
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Không thể tạo giọng đọc AI. "
+                "Vui lòng kiểm tra model TTS."
+            )
+        ) from exc
+    @app.post("/api/text/clean")
 def clean_text(data: TextRequest):
     text = data.text
 
