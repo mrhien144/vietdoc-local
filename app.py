@@ -7,6 +7,7 @@ from threading import Lock
 import pdfplumber
 from docx import Document
 import easyocr
+import pypdfium2 as pdfium
 from argostranslate import package as argos_package
 from argostranslate import translate as argos_translate
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -277,6 +278,7 @@ async def pdf_to_word(file: UploadFile = File(...)):
             )
 
         document = Document()
+        extracted_any_text = False
 
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             if not pdf.pages:
@@ -291,7 +293,9 @@ async def pdf_to_word(file: UploadFile = File(...)):
                     y_tolerance=3
                 )
 
-                if text:
+                if text and text.strip():
+                    extracted_any_text = True
+
                     for line in text.splitlines():
                         line = line.strip()
 
@@ -299,6 +303,36 @@ async def pdf_to_word(file: UploadFile = File(...)):
                             document.add_paragraph(line)
 
                 if page_index < len(pdf.pages) - 1:
+                    document.add_page_break()
+
+        if not extracted_any_text:
+            document = Document()
+
+            pdf_doc = pdfium.PdfDocument(pdf_bytes)
+            ocr = get_ocr_engine()
+
+            for page_index in range(len(pdf_doc)):
+                page = pdf_doc[page_index]
+
+                bitmap = page.render(
+                    scale=2.0
+                )
+
+                image = bitmap.to_numpy()
+
+                results = ocr.readtext(
+                    image,
+                    detail=0,
+                    paragraph=True
+                )
+
+                for text in results:
+                    text = text.strip()
+
+                    if text:
+                        document.add_paragraph(text)
+
+                if page_index < len(pdf_doc) - 1:
                     document.add_page_break()
 
         output = io.BytesIO()
@@ -329,6 +363,7 @@ async def pdf_to_word(file: UploadFile = File(...)):
             status_code=500,
             detail="Không thể chuyển PDF sang Word."
         ) from exc
+        
 @app.post("/api/text/clean")
 def clean_text(data: TextRequest):
     text = data.text
