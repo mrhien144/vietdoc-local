@@ -4,9 +4,12 @@ import re
 from functools import lru_cache
 from threading import Lock
 
+import pdfplumber
+from docx import Document
+
 from argostranslate import package as argos_package
 from argostranslate import translate as argos_translate
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
@@ -246,6 +249,78 @@ def text_to_speech(data: TTSRequest):
                 "Không thể tạo giọng đọc AI. "
                 "Vui lòng kiểm tra model TTS."
             )
+        ) from exc
+@app.post("/api/pdf-to-word")
+async def pdf_to_word(file: UploadFile = File(...)):
+    filename = file.filename or ""
+
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail="Vui lòng chọn đúng file PDF."
+        )
+
+    try:
+        pdf_bytes = await file.read()
+
+        if not pdf_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail="File PDF không có dữ liệu."
+            )
+
+        document = Document()
+
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            if not pdf.pages:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Không tìm thấy trang nào trong file PDF."
+                )
+
+            for page_index, page in enumerate(pdf.pages):
+                text = page.extract_text(
+                    x_tolerance=2,
+                    y_tolerance=3
+                )
+
+                if text:
+                    for line in text.splitlines():
+                        line = line.strip()
+
+                        if line:
+                            document.add_paragraph(line)
+
+                if page_index < len(pdf.pages) - 1:
+                    document.add_page_break()
+
+        output = io.BytesIO()
+        document.save(output)
+        docx_bytes = output.getvalue()
+
+        output_name = (
+            Path(filename).stem + ".docx"
+        )
+
+        return Response(
+            content=docx_bytes,
+            media_type=(
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document"
+            ),
+            headers={
+                "Content-Disposition":
+                    f'attachment; filename="{output_name}"'
+            }
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Không thể chuyển PDF sang Word."
         ) from exc
 @app.post("/api/text/clean")
 def clean_text(data: TextRequest):
