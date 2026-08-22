@@ -6,7 +6,7 @@ from threading import Lock
 
 import pdfplumber
 from docx import Document
-from paddleocr import PaddleOCR
+import easyocr
 from argostranslate import package as argos_package
 from argostranslate import translate as argos_translate
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -46,11 +46,9 @@ def get_tts_engine():
 
 @lru_cache(maxsize=1)
 def get_ocr_engine():
-    return PaddleOCR(
-        lang="vi",
-        use_doc_orientation_classify=False,
-        use_doc_unwarping=False,
-        use_textline_orientation=False,
+    return easyocr.Reader(
+        ["vi", "en"],
+        gpu=False
     )
 def argos_pair_installed(from_code: str, to_code: str) -> bool:
     installed_packages = argos_package.get_installed_packages()
