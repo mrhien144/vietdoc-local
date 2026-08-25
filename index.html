@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VietDoc Local 2.0</title>
+<title>VoxViet AI</title>
 
 <style>
 * {
@@ -265,8 +265,15 @@ textarea:focus {
 
   <aside class="sidebar">
 
-    <div class="brand">VietDoc Local</div>
-    <div class="version">Version 2.0 Development</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+  <img src="logo-voxviet.png"
+       alt="VoxViet AI"
+       style="width:42px;height:42px;object-fit:contain;border-radius:10px;">
+
+  <div class="brand">VoxViet AI</div>
+</div>
+
+<div class="version">Version 1.0 Desktop</div>
 
     <div class="menu-title">Văn bản</div>
 
@@ -315,8 +322,8 @@ textarea:focus {
     <div class="header">
 
       <div>
-        <h1>VietDoc Local</h1>
-        <p>Trợ lý xử lý văn bản tiếng Việt chạy cục bộ trên SoloHost</p>
+        <h1>VoxViet AI</h1>
+<p>Chuyển văn bản thành giọng nói AI tiếng Việt tự nhiên.</p>
       </div>
 
       <div class="status">
@@ -568,7 +575,7 @@ async function apiText(endpoint) {
   } catch (error) {
 
     showMessage(
-      "Không thể kết nối backend. Vui lòng kiểm tra VietDoc Local."
+      "Không thể kết nối hệ thống VoxViet AI. Vui lòng thử lại."
     );
 
   }
@@ -778,7 +785,7 @@ function downloadText() {
 
   a.href = url;
 
-  a.download = "vietdoc-local.txt";
+  a.download = "voxviet-ai.txt";
 
   a.click();
 
@@ -1032,7 +1039,7 @@ function comingSoon(feature) {
 
   showMessage(
     feature +
-    " đang được chuẩn bị cho VietDoc Local 2.0."
+    " đang được chuẩn bị cho VoxViet AI."
   );
 
 }
