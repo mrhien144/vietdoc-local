@@ -471,7 +471,18 @@ textarea:focus {
       ⏹ Dừng
     </button>
   </div>
+<div style="margin-top:10px;">
+  <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+    <span>Tiến trình tạo giọng</span>
+    <span id="ttsProgressText">0%</span>
+  </div>
 
+  <div style="width:100%;height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;">
+    <div id="ttsProgressBar"
+         style="width:0%;height:100%;background:#4f46e5;transition:width .3s ease;">
+    </div>
+  </div>
+</div>
   <audio id="ttsAudio"
          controls
          style="width:100%;margin-top:10px;display:none;">
@@ -859,7 +870,25 @@ async function generateTTS() {
   const voice = document.getElementById("ttsVoice").value;
   const style = document.getElementById("ttsStyle").value;
   const audio = document.getElementById("ttsAudio");
+const progressBar = document.getElementById("ttsProgressBar");
+const progressText = document.getElementById("ttsProgressText");
 
+let progress = 0;
+progressBar.style.width = "0%";
+progressText.textContent = "0%";
+
+const progressTimer = setInterval(() => {
+  if (progress < 90) {
+    progress += Math.floor(Math.random() * 4) + 1;
+
+    if (progress > 90) {
+      progress = 90;
+    }
+
+    progressBar.style.width = progress + "%";
+    progressText.textContent = progress + "%";
+  }
+}, 700);
   showMessage(
     "Đang tạo giọng đọc AI... Lần đầu có thể mất một chút thời gian."
   );
@@ -902,10 +931,17 @@ async function generateTTS() {
     audio.load();
 
     await audio.play();
-
+    
+clearInterval(progressTimer);
+progress = 100;
+progressBar.style.width = "100%";
+progressText.textContent = "100%";
     showMessage("Đang phát giọng đọc AI.");
 
   } catch (error) {
+    clearInterval(progressTimer);
+progressBar.style.width = "0%";
+progressText.textContent = "Lỗi";
     showMessage(
       "Lỗi giọng đọc AI: " + error.message
     );
