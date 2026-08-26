@@ -7,3 +7,5 @@ sentencepiece
 argostranslate
 vieneu==3.3.0
 pywebview
+pydub
+imageio-ffmpeg
