@@ -478,8 +478,12 @@ textarea:focus {
     <button onclick="stopTTS()" style="flex:1;">
       ⏹ Dừng
     </button>
-    <button onclick="downloadTTSAudio()" style="flex:1;">
-  ⬇ Tải âm thanh
+    <button onclick="downloadTTSAudio('wav')" style="flex:1;">
+  ⬇ Tải WAV
+</button>
+
+<button onclick="downloadTTSAudio('mp3')" style="flex:1;">
+  ⬇ Tải MP3
 </button>
   </div>
 
@@ -851,7 +855,7 @@ function blobToBase64(blob) {
 }
 
 
-async function downloadTTSAudio() {
+async function downloadTTSAudio(audioFormat = "wav") {
   if (!currentTTSBlob) {
     showMessage("Chưa có file âm thanh để tải.");
     return;
@@ -861,8 +865,9 @@ async function downloadTTSAudio() {
     const audioBase64 = await blobToBase64(currentTTSBlob);
 
     const result = await window.pywebview.api.save_audio(
-      audioBase64
-    );
+  audioBase64,
+  audioFormat
+);
 
     if (result.ok) {
       showMessage("Đã lưu file âm thanh.");
