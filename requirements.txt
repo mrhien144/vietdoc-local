@@ -9,3 +9,5 @@ vieneu==3.3.0
 pywebview
 pydub
 imageio-ffmpeg
+kokoro==0.9.4
+soundfile
