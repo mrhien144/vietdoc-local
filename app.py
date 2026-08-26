@@ -31,6 +31,7 @@ class TranslationRequest(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
+    language: str = "vi"
     voice: str | None = None
     style: str = "tu_nhien"
 
@@ -40,6 +41,14 @@ def get_tts_engine():
     from vieneu import Vieneu
 
     return Vieneu()
+
+@lru_cache(maxsize=2)
+def get_english_tts_engine(lang_code: str = "a"):
+    from kokoro import KPipeline
+
+    return KPipeline(lang_code=lang_code)
+
+
 def argos_pair_installed(from_code: str, to_code: str) -> bool:
     installed_packages = argos_package.get_installed_packages()
 
@@ -174,8 +183,22 @@ def translate_text(data: TranslationRequest):
             )
         ) from exc
 @app.get("/api/tts/voices")
-def tts_voices():
+def tts_voices(language: str = "vi"):
     try:
+        if language == "en":
+            return {
+                "voices": [
+                    {"id": "af_heart", "label": "Heart — Nữ — Mỹ"},
+                    {"id": "af_bella", "label": "Bella — Nữ — Mỹ"},
+                    {"id": "af_nicole", "label": "Nicole — Nữ — Mỹ"},
+                    {"id": "am_michael", "label": "Michael — Nam — Mỹ"},
+                    {"id": "bf_emma", "label": "Emma — Nữ — Anh"},
+                    {"id": "bm_george", "label": "George — Nam — Anh"}
+                ],
+                "styles": [
+                    {"id": "tu_nhien", "label": "Tự nhiên"}
+                ]
+            }
         engine = get_tts_engine()
 
         voices = [
@@ -227,13 +250,45 @@ def text_to_speech(data: TTSRequest):
 
     try:
         with TTS_LOCK:
-            engine = get_tts_engine()
+            if data.language == "en":
+                voice_id = data.voice or "af_heart"
 
-            audio = engine.infer(
-                text,
-                voice=data.voice or None,
-                style=style
-            )
+                lang_code = (
+                    "b"
+                    if voice_id.startswith(("bf_", "bm_"))
+                    else "a"
+                )
+
+                pipeline = get_english_tts_engine(lang_code)
+
+                generator = pipeline(
+                    text,
+                    voice=voice_id
+                )
+
+                audio_parts = [
+                    item[2]
+                    for item in generator
+                ]
+
+                if not audio_parts:
+                    raise ValueError("Không tạo được âm thanh tiếng Anh.")
+
+                import numpy as np
+
+                audio = np.concatenate(audio_parts)
+                sample_rate = 24000
+
+            else:
+                engine = get_tts_engine()
+
+                audio = engine.infer(
+                    text,
+                    voice=data.voice or None,
+                    style=style
+                )
+
+                sample_rate = engine.sample_rate
 
             import soundfile as sf
 
@@ -242,7 +297,7 @@ def text_to_speech(data: TTSRequest):
             sf.write(
                 buffer,
                 audio,
-                engine.sample_rate,
+                sample_rate,
                 format="WAV"
             )
 
@@ -253,7 +308,7 @@ def text_to_speech(data: TTSRequest):
             media_type="audio/wav",
             headers={
                 "Content-Disposition":
-                    'inline; filename="vietdoc-ai.wav"'
+                    'inline; filename="voxviet-ai.wav"'
             }
         )
 
