@@ -449,6 +449,11 @@ textarea:focus {
   <h3>🔊 Văn bản → Giọng nói AI</h3>
   <p>Chuyển văn bản thành giọng đọc AI tiếng Việt tự nhiên.</p>
 
+  <select id="ttsLanguage" onchange="loadTTSVoices()"
+        style="width:100%;padding:9px;margin-bottom:8px;border-radius:8px;border:1px solid #d1d5db;">
+  <option value="vi">🇻🇳 Tiếng Việt</option>
+  <option value="en">🇬🇧 English</option>
+</select>
   <select id="ttsVoice"
           style="width:100%;padding:9px;margin-bottom:8px;border-radius:8px;border:1px solid #d1d5db;">
     <option value="">Đang tải danh sách giọng AI...</option>
@@ -882,9 +887,12 @@ async function downloadTTSAudio(audioFormat = "wav") {
 }
 async function loadTTSVoices() {
   const voiceSelect = document.getElementById("ttsVoice");
+  const language = document.getElementById("ttsLanguage").value;
 
   try {
-    const response = await fetch("/api/tts/voices");
+    const response = await fetch(
+  `/api/tts/voices?language=${encodeURIComponent(language)}`
+);
     const result = await response.json();
 
     if (!response.ok) {
@@ -924,6 +932,7 @@ async function generateTTS() {
     return;
   }
 
+  const language = document.getElementById("ttsLanguage").value;
   const voice = document.getElementById("ttsVoice").value;
   const style = document.getElementById("ttsStyle").value;
   const audio = document.getElementById("ttsAudio");
@@ -958,6 +967,7 @@ const progressTimer = setInterval(() => {
       },
       body: JSON.stringify({
         text: box.value,
+        language: language,
         voice: voice || null,
         style: style
       })
