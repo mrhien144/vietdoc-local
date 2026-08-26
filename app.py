@@ -101,7 +101,12 @@ def voxviet_favicon():
         BASE_DIR / "voxviet-ai.ico",
         media_type="image/x-icon"
     )
-
+@app.get("/voxviet-icon.png")
+def voxviet_icon_png():
+    return FileResponse(
+        BASE_DIR / "voxviet-icon.png",
+        media_type="image/png"
+    )
 @app.get("/api/health")
 def health():
     return {
