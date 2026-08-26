@@ -87,7 +87,20 @@ def ensure_argos_pair(from_code: str, to_code: str):
 @app.get("/")
 def home():
     return FileResponse(BASE_DIR / "index.html")
+@app.get("/logo-voxviet.png")
+def logo_voxviet():
+    return FileResponse(
+        BASE_DIR / "logo-voxviet.png",
+        media_type="image/png"
+    )
 
+
+@app.get("/voxviet-ai.ico")
+def voxviet_favicon():
+    return FileResponse(
+        BASE_DIR / "voxviet-ai.ico",
+        media_type="image/x-icon"
+    )
 
 @app.get("/api/health")
 def health():
