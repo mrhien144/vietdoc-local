@@ -974,6 +974,7 @@ async function loadTTSVoices() {
       option.textContent = voice.label;
       voiceSelect.appendChild(option);
     });
+    voiceSelect.dataset.baseVoice = result.voices[0]?.id || "";
 
     if (language === "vi") {
     const customOption = document.createElement("option");
@@ -1006,6 +1007,9 @@ async function generateTTS() {
 
   const language = document.getElementById("ttsLanguage").value;
   const voice = document.getElementById("ttsVoice").value;
+  const requestVoice = voice === "custom_voice"
+    ? document.getElementById("ttsVoice").dataset.baseVoice
+    : voice;
   const style = document.getElementById("ttsStyle").value;
   const audio = document.getElementById("ttsAudio");
 const progressBar = document.getElementById("ttsProgressBar");
@@ -1040,7 +1044,7 @@ const progressTimer = setInterval(() => {
       body: JSON.stringify({
         text: box.value,
         language: language,
-        voice: voice || null,
+        voice: requestVoice || null,
         style: style
       })
     });
@@ -1057,7 +1061,35 @@ const progressTimer = setInterval(() => {
       throw new Error(detail);
     }
 
-    const blob = await response.blob();
+    let blob = await response.blob();
+    if (voice === "custom_voice") {
+    const formData = new FormData();
+    formData.append("source_file", blob, "source.wav");
+
+    showMessage("Đang chuyển sang giọng của tôi...");
+
+    const cloneResponse = await fetch(
+        "http://127.0.0.1:8766/api/voice/clone",
+        {
+            method: "POST",
+            body: formData
+        }
+    );
+
+    if (!cloneResponse.ok) {
+        let cloneDetail = "Không thể clone giọng.";
+
+        try {
+            const cloneResult = await cloneResponse.json();
+            cloneDetail = cloneResult.detail || cloneDetail;
+        } catch (_) {
+        }
+
+        throw new Error(cloneDetail);
+    }
+
+    blob = await cloneResponse.blob();
+}
 
     if (currentTTSUrl) {
       URL.revokeObjectURL(currentTTSUrl);
