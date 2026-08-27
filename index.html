@@ -466,6 +466,20 @@ textarea:focus {
     <option value="doc_truyen">Kể chuyện</option>
   </select>
 
+  <div style="margin-bottom:8px;">
+  <button type="button"
+          onclick="document.getElementById('customVoiceFile').click()"
+          style="width:100%;">
+    🎙 + Thêm giọng của tôi
+  </button>
+
+  <input id="customVoiceFile"
+         type="file"
+         accept="audio/*"
+         onchange="handleCustomVoiceFile(event)"
+         style="display:none;">
+</div>
+
   <button class="ai" onclick="generateTTS()">
     ▶ Đọc AI
   </button>
@@ -843,6 +857,7 @@ function speakText() {
 
 let currentTTSUrl = null;
 let currentTTSBlob = null;
+let currentCustomVoiceFile = null;
 
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
@@ -858,7 +873,57 @@ function blobToBase64(blob) {
   });
 }
 
+function handleCustomVoiceFile(event) {
+  const file = event.target.files && event.target.files[0];
 
+  if (!file) {
+    return;
+  }
+
+  currentCustomVoiceFile = file;
+
+  showMessage(
+    "Đã chọn giọng mẫu: " + file.name
+  );
+  uploadCustomVoice();
+}
+async function uploadCustomVoice() {
+  if (!currentCustomVoiceFile) {
+    showMessage("Vui lòng chọn file giọng mẫu trước.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("voice_file", currentCustomVoiceFile);
+
+  showMessage("Đang xử lý giọng mẫu...");
+    try {
+    const response = await fetch(
+      "http://127.0.0.1:8766/api/voice/upload",
+      {
+        method: "POST",
+        body: formData
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Không thể tải giọng mẫu."
+      );
+    }
+
+    showMessage(
+      result.message || "Đã nhận giọng mẫu."
+    );
+
+  } catch (error) {
+    showMessage(
+      "Lỗi thêm giọng: " + error.message
+    );
+  }
+}
 async function downloadTTSAudio(audioFormat = "wav") {
   if (!currentTTSBlob) {
     showMessage("Chưa có file âm thanh để tải.");
