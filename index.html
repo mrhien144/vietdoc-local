@@ -975,6 +975,13 @@ async function loadTTSVoices() {
       voiceSelect.appendChild(option);
     });
 
+    if (language === "vi") {
+    const customOption = document.createElement("option");
+    customOption.value = "custom_voice";
+    customOption.textContent = "🎙 Giọng của tôi";
+    voiceSelect.appendChild(customOption);
+}
+
     if (!result.voices.length) {
       voiceSelect.innerHTML =
         '<option value="">Không tìm thấy giọng AI</option>';
