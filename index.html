@@ -257,12 +257,188 @@ textarea:focus {
     grid-template-columns: repeat(2,1fr);
   }
 }
+/* AUTH */
+
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f4f6fb;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: white;
+  border-radius: 18px;
+  padding: 30px;
+  box-shadow: 0 10px 35px rgba(0,0,0,.10);
+}
+
+.auth-logo {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.auth-logo img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  border-radius: 16px;
+}
+
+.auth-logo h2 {
+  margin: 10px 0 4px;
+  font-size: 26px;
+}
+
+.auth-logo p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.auth-tabs button {
+  flex: 1;
+}
+
+.auth-tabs button.active {
+  background: #4f46e5;
+  color: white;
+}
+
+.auth-field {
+  margin-bottom: 14px;
+}
+
+.auth-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.auth-field input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  font-size: 14px;
+  outline: none;
+}
+
+.auth-field input:focus {
+  border-color: #6366f1;
+}
+
+.auth-submit {
+  width: 100%;
+  background: #4f46e5;
+  color: white;
+  padding: 11px;
+  margin-top: 4px;
+}
+
+.auth-message {
+  min-height: 20px;
+  margin-top: 12px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.auth-message.error {
+  color: #b91c1c;
+}
+
+.auth-message.success {
+  color: #166534;
+}
 </style>
 </head>
 
 <body>
 
-<div class="app">
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+
+    <div class="auth-logo">
+      <img src="voxviet-icon.png" alt="VoxViet AI">
+      <h2>VoxViet AI</h2>
+      <p>Đăng nhập để tiếp tục sử dụng</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button
+        id="loginTab"
+        class="active"
+        type="button"
+        onclick="showLoginForm()">
+        Đăng nhập
+      </button>
+
+      <button
+        id="registerTab"
+        type="button"
+        onclick="showRegisterForm()">
+        Đăng ký
+      </button>
+    </div>
+
+    <div class="auth-field">
+      <label for="authEmail">Email</label>
+      <input
+        id="authEmail"
+        type="email"
+        placeholder="Nhập email của bạn"
+        autocomplete="email">
+    </div>
+
+    <div class="auth-field">
+      <label for="authPassword">Mật khẩu</label>
+      <input
+        id="authPassword"
+        type="password"
+        placeholder="Nhập mật khẩu"
+        autocomplete="current-password">
+    </div>
+
+    <div
+      id="confirmPasswordField"
+      class="auth-field"
+      style="display:none;">
+      <label for="authConfirmPassword">Nhập lại mật khẩu</label>
+      <input
+        id="authConfirmPassword"
+        type="password"
+        placeholder="Nhập lại mật khẩu"
+        autocomplete="new-password">
+    </div>
+
+    <button
+      id="authSubmitButton"
+      class="auth-submit"
+      type="button"
+      onclick="submitAuth()">
+      Đăng nhập
+    </button>
+
+    <div
+      id="authMessage"
+      class="auth-message">
+    </div>
+
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none;">
 
   <aside class="sidebar">
 
@@ -326,9 +502,36 @@ textarea:focus {
 <p>Chuyển văn bản thành giọng nói AI tiếng Việt tự nhiên.</p>
       </div>
 
-      <div class="status">
-        ● LOCAL
-      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+
+  <span id="accountEmail"
+        style="font-size:12px;color:#4b5563;">
+  </span>
+
+  <span id="planBadge"
+        style="background:#ede9fe;color:#5b21b6;padding:7px 10px;border-radius:20px;font-size:12px;font-weight:bold;">
+    FREE
+  </span>
+  <span id="usageText"
+      style="font-size:12px;color:#6b7280;white-space:nowrap;">
+  Đã dùng tháng này: 0 ký tự
+</span>
+  <button type="button"
+          class="primary"
+          onclick="upgradePlan()">
+    Nâng cấp
+  </button>
+
+  <button type="button"
+          onclick="logoutUser()">
+    Đăng xuất
+  </button>
+
+  <div class="status">
+    ● LOCAL
+  </div>
+
+</div>
 
     </div>
 
@@ -558,8 +761,759 @@ textarea:focus {
 </div>
 
 
-<script>
+<!-- UPGRADE MODAL -->
+<div id="upgradeModal"
+     style="
+       display:none;
+       position:fixed;
+       inset:0;
+       z-index:9999;
+       background:rgba(0,0,0,.45);
+       align-items:center;
+       justify-content:center;
+       padding:20px;
+     ">
 
+  <div style="
+       width:min(1050px,96vw);
+       max-height:92vh;
+       overflow:auto;
+       background:#ffffff;
+       border-radius:18px;
+       padding:24px;
+       box-shadow:0 20px 60px rgba(0,0,0,.25);
+     ">
+
+    <div style="
+         display:flex;
+         justify-content:space-between;
+         align-items:center;
+         gap:16px;
+         margin-bottom:20px;
+       ">
+
+      <div>
+        <h2 style="margin:0 0 4px;">
+          Nâng cấp VoxViet AI
+        </h2>
+
+        <div style="font-size:13px;color:#6b7280;">
+          Chọn gói và thời hạn phù hợp với nhu cầu của bạn
+        </div>
+      </div>
+
+      <button type="button"
+              onclick="closeUpgradeModal()"
+              style="
+                font-size:20px;
+                width:38px;
+                height:38px;
+                padding:0;
+              ">
+        ×
+      </button>
+
+    </div>
+
+
+    <div style="
+         display:grid;
+         grid-template-columns:repeat(3,minmax(0,1fr));
+         gap:16px;
+       ">
+
+      <!-- STANDARD -->
+      <div style="
+           border:1px solid #e5e7eb;
+           border-radius:16px;
+           padding:20px;
+         ">
+
+        <h3 style="margin-top:0;">
+          STANDARD
+        </h3>
+
+        <div style="
+             font-weight:bold;
+             font-size:18px;
+             margin-bottom:14px;
+           ">
+          150.000 ký tự/tháng
+        </div>
+
+        <div style="display:grid;gap:8px;">
+
+  <button type="button"
+          onclick="selectUpgradePlan('standard', 1, 15000)">
+    1 tháng — 15.000đ
+  </button>
+
+  <button type="button"
+          onclick="selectUpgradePlan('standard', 12, 129000)">
+    1 năm — 129.000đ
+  </button>
+
+  <button type="button"
+          onclick="selectUpgradePlan('standard', 24, 219000)">
+    2 năm — 219.000đ
+  </button>
+
+  <button type="button"
+          onclick="selectUpgradePlan('standard', 60, 399000)">
+    5 năm — 399.000đ
+  </button>
+
+</div>
+
+      </div>
+
+
+      <!-- SPECIAL -->
+      <div style="
+           border:2px solid #6366f1;
+           border-radius:16px;
+           padding:20px;
+           position:relative;
+         ">
+
+        <div style="
+             position:absolute;
+             top:-11px;
+             right:14px;
+             background:#6366f1;
+             color:white;
+             padding:4px 9px;
+             border-radius:20px;
+             font-size:11px;
+             font-weight:bold;
+           ">
+          PHỔ BIẾN
+        </div>
+
+        <h3 style="margin-top:0;">
+          SPECIAL
+        </h3>
+
+        <div style="
+             font-weight:bold;
+             font-size:18px;
+             margin-bottom:14px;
+           ">
+          350.000 ký tự/tháng
+        </div>
+
+        <div style="display:grid;gap:8px;">
+
+  <button type="button"
+          onclick="selectUpgradePlan('special', 1, 25000)">
+    1 tháng — 25.000đ
+  </button>
+
+  <button type="button"
+          onclick="selectUpgradePlan('special', 12, 199000)">
+    1 năm — 199.000đ
+  </button>
+
+  <button type="button"
+          onclick="selectUpgradePlan('special', 24, 339000)">
+    2 năm — 339.000đ
+  </button>
+
+  <button type="button"
+          onclick="selectUpgradePlan('special', 60, 599000)">
+    5 năm — 599.000đ
+  </button>
+
+</div>
+
+      </div>
+
+
+      <!-- VIP -->
+      <div style="
+           border:1px solid #e5e7eb;
+           border-radius:16px;
+           padding:20px;
+         ">
+
+        <h3 style="margin-top:0;">
+          VIP
+        </h3>
+
+        <div style="
+             font-weight:bold;
+             font-size:18px;
+             margin-bottom:14px;
+           ">
+          1.000.000 ký tự/tháng
+        </div>
+
+        <div style="display:grid;gap:8px;">
+
+  <button type="button"
+          onclick="selectUpgradePlan('vip', 1, 39000)">
+    1 tháng — 39.000đ
+  </button>
+
+  <button type="button"
+          onclick="selectUpgradePlan('vip', 12, 299000)">
+    1 năm — 299.000đ
+  </button>
+
+  <button type="button"
+          onclick="selectUpgradePlan('vip', 24, 499000)">
+    2 năm — 499.000đ
+  </button>
+
+  <button type="button"
+          onclick="selectUpgradePlan('vip', 60, 899000)">
+    5 năm — 899.000đ
+  </button>
+
+</div>
+
+      </div>
+
+    </div>
+
+    <div style="
+         margin-top:18px;
+         font-size:12px;
+         color:#6b7280;
+         text-align:center;
+       ">
+      Gói FREE: 5.000 ký tự/tháng
+    </div>
+
+<div id="upgradeConfirm"
+     style="
+       display:none;
+       margin-top:18px;
+       padding:16px;
+       border:1px solid #dbeafe;
+       background:#f8fafc;
+       border-radius:14px;
+     ">
+
+  <div style="
+       font-weight:bold;
+       font-size:16px;
+       margin-bottom:8px;
+     ">
+    Xác nhận nâng cấp
+  </div>
+
+  <div id="upgradeConfirmText"
+       style="
+         font-size:14px;
+         line-height:1.7;
+         margin-bottom:12px;
+       ">
+  </div>
+
+  <button id="upgradePaymentButton"
+        type="button"
+        class="primary"
+        onclick="continueUpgradePayment()"
+        disabled>
+  Tiếp tục thanh toán
+</button>
+
+</div>
+  </div>
+</div>
+<script>
+let authMode = "login";
+
+function setAuthMessage(text, type = "") {
+  const el = document.getElementById("authMessage");
+
+  el.textContent = text;
+  el.className = "auth-message";
+
+  if (type) {
+    el.classList.add(type);
+  }
+}
+
+function showLoginForm() {
+  authMode = "login";
+
+  document.getElementById("loginTab").classList.add("active");
+  document.getElementById("registerTab").classList.remove("active");
+
+  document.getElementById("confirmPasswordField").style.display = "none";
+
+  document.getElementById("authSubmitButton").textContent = "Đăng nhập";
+
+  document.getElementById("authPassword").autocomplete = "current-password";
+
+  setAuthMessage("");
+}
+
+function showRegisterForm() {
+  authMode = "register";
+
+  document.getElementById("registerTab").classList.add("active");
+  document.getElementById("loginTab").classList.remove("active");
+
+  document.getElementById("confirmPasswordField").style.display = "block";
+
+  document.getElementById("authSubmitButton").textContent = "Đăng ký";
+
+  document.getElementById("authPassword").autocomplete = "new-password";
+
+  setAuthMessage("");
+}
+
+async function submitAuth() {
+  const email =
+    document.getElementById("authEmail").value.trim();
+
+  const password =
+    document.getElementById("authPassword").value;
+
+  const confirmPassword =
+    document.getElementById("authConfirmPassword").value;
+
+  if (!email || !password) {
+    setAuthMessage(
+      "Vui lòng nhập đầy đủ email và mật khẩu.",
+      "error"
+    );
+    return;
+  }
+
+  if (password.length < 6) {
+    setAuthMessage(
+      "Mật khẩu phải có ít nhất 6 ký tự.",
+      "error"
+    );
+    return;
+  }
+
+  if (
+    authMode === "register" &&
+    password !== confirmPassword
+  ) {
+    setAuthMessage(
+      "Mật khẩu nhập lại không khớp.",
+      "error"
+    );
+    return;
+  }
+
+  const button =
+    document.getElementById("authSubmitButton");
+
+  button.disabled = true;
+
+  button.textContent =
+    authMode === "register"
+      ? "Đang đăng ký..."
+      : "Đang đăng nhập...";
+
+  setAuthMessage("");
+
+  try {
+    const endpoint =
+      authMode === "register"
+        ? "/api/auth/register"
+        : "/api/auth/login";
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email: email,
+        password: password
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Không thể thực hiện yêu cầu."
+      );
+    }
+
+    if (authMode === "register") {
+      setAuthMessage(
+        result.message || "Đăng ký thành công.",
+        "success"
+      );
+
+      document.getElementById("authPassword").value = "";
+      document.getElementById("authConfirmPassword").value = "";
+
+      return;
+    }
+
+    sessionStorage.setItem(
+      "voxviet_access_token",
+      result.access_token || ""
+    );
+
+    sessionStorage.setItem(
+      "voxviet_refresh_token",
+      result.refresh_token || ""
+    );
+
+    sessionStorage.setItem(
+      "voxviet_user_email",
+      result.user?.email || email
+    );
+
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("mainApp").style.display = "flex";
+    document.getElementById("accountEmail").textContent =
+      result.user?.email || email;
+
+    await loadAccountProfile();
+    await loadAccountUsage();
+
+  } catch (error) {
+    setAuthMessage(
+      error.message || "Không thể kết nối hệ thống.",
+      "error"
+    );
+
+  } finally {
+    button.disabled = false;
+
+    button.textContent =
+      authMode === "register"
+        ? "Đăng ký"
+        : "Đăng nhập";
+  }
+}
+async function refreshAccessToken() {
+  const refreshToken =
+    sessionStorage.getItem("voxviet_refresh_token") || "";
+
+  if (!refreshToken) {
+    return "";
+  }
+
+  try {
+    const response = await fetch("/api/auth/refresh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        refresh_token: refreshToken
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.access_token) {
+      if (response.status === 400 || response.status === 401) {
+        sessionStorage.removeItem("voxviet_access_token");
+        sessionStorage.removeItem("voxviet_refresh_token");
+      }
+
+      return "";
+    }
+
+    sessionStorage.setItem(
+      "voxviet_access_token",
+      result.access_token
+    );
+
+    if (result.refresh_token) {
+      sessionStorage.setItem(
+        "voxviet_refresh_token",
+        result.refresh_token
+      );
+    }
+
+    return result.access_token;
+
+  } catch (error) {
+    console.error(
+      "Không thể làm mới phiên đăng nhập:",
+      error
+    );
+
+    return "";
+  }
+}
+async function authenticatedFetch(url, options = {}) {
+  let accessToken =
+    sessionStorage.getItem("voxviet_access_token") || "";
+
+  if (!accessToken) {
+    accessToken = await refreshAccessToken();
+  }
+
+  if (!accessToken) {
+    throw new Error("Phiên đăng nhập đã hết hạn.");
+  }
+
+  const createOptions = (token) => ({
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      "Authorization": `Bearer ${token}`
+    }
+  });
+
+  let response = await fetch(
+    url,
+    createOptions(accessToken)
+  );
+
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const newAccessToken =
+    await refreshAccessToken();
+
+  if (!newAccessToken) {
+    return response;
+  }
+
+  response = await fetch(
+    url,
+    createOptions(newAccessToken)
+  );
+
+  return response;
+}
+async function loadAccountUsage() {
+  
+
+  try {
+        const response = await authenticatedFetch(
+      "/api/account/usage",
+      {
+        method: "GET"
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Không đọc được dữ liệu sử dụng."
+      );
+    }
+
+    const charactersUsed =
+  Number(result.characters_used || 0);
+
+const monthlyLimit =
+  Number(result.monthly_limit || 0);
+
+document.getElementById("usageText").textContent =
+  "Đã dùng tháng này: " +
+  charactersUsed.toLocaleString("vi-VN") +
+  " / " +
+  monthlyLimit.toLocaleString("vi-VN") +
+  " ký tự";
+
+  } catch (error) {
+    console.error(
+      "Không tải được dữ liệu sử dụng:",
+      error
+    );
+
+    document.getElementById("usageText").textContent =
+      "Đã dùng tháng này: —";
+  }
+}
+async function loadAccountProfile() {
+  
+
+  try {
+    const response = await authenticatedFetch(
+      "/api/account/profile",
+      {
+        method: "GET"
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Không đọc được gói tài khoản."
+      );
+    }
+
+    const profile = result.profile || {};
+
+    document.getElementById("planBadge").textContent =
+      (profile.plan || "free").toUpperCase();
+
+    if (profile.email) {
+      document.getElementById("accountEmail").textContent =
+        profile.email;
+    }
+
+  } catch (error) {
+    console.error("Không tải được hồ sơ tài khoản:", error);
+
+    document.getElementById("planBadge").textContent = "—";
+  }
+}
+function logoutUser() {
+  sessionStorage.removeItem("voxviet_access_token");
+  sessionStorage.removeItem("voxviet_refresh_token");
+  sessionStorage.removeItem("voxviet_user_email");
+
+  document.getElementById("mainApp").style.display = "none";
+  document.getElementById("authScreen").style.display = "flex";
+
+  document.getElementById("authEmail").value = "";
+  document.getElementById("authPassword").value = "";
+  document.getElementById("authConfirmPassword").value = "";
+
+  showLoginForm();
+
+  setAuthMessage(
+    "Đã đăng xuất khỏi VoxViet AI.",
+    "success"
+  );
+}
+
+
+function upgradePlan() {
+  document.getElementById("upgradeModal").style.display = "flex";
+}
+
+function closeUpgradeModal() {
+  document.getElementById("upgradeModal").style.display = "none";
+}
+let selectedUpgrade = null;
+
+function selectUpgradePlan(plan, months, price) {
+  const planNames = {
+    standard: "STANDARD",
+    special: "SPECIAL",
+    vip: "VIP"
+  };
+
+  const durationNames = {
+    1: "1 tháng",
+    12: "1 năm",
+    24: "2 năm",
+    60: "5 năm"
+  };
+
+  selectedUpgrade = {
+    plan: plan,
+    months: months,
+    price: price
+  };
+
+  const planName =
+    planNames[plan] || plan.toUpperCase();
+
+  const durationName =
+    durationNames[months] || (months + " tháng");
+
+    const confirmBox =
+    document.getElementById("upgradeConfirm");
+
+  const confirmText =
+    document.getElementById("upgradeConfirmText");
+
+  const paymentButton =
+    document.getElementById("upgradePaymentButton");
+
+  confirmText.innerHTML =
+    "<b>Gói:</b> " + planName + "<br>" +
+    "<b>Thời hạn:</b> " + durationName + "<br>" +
+    "<b>Giá:</b> " +
+    price.toLocaleString("vi-VN") + "đ";
+
+  confirmBox.style.display = "block";
+
+  paymentButton.disabled = false;
+}
+async function continueUpgradePayment() {
+  if (!selectedUpgrade) {
+    return;
+  }
+
+  
+
+  const paymentButton =
+    document.getElementById("upgradePaymentButton");
+
+  if (paymentButton) {
+    paymentButton.disabled = true;
+    paymentButton.textContent = "Đang tạo đơn...";
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      "/api/payment/create",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          plan: selectedUpgrade.plan,
+          months: selectedUpgrade.months
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      throw new Error(
+        result.detail ||
+        result.message ||
+        "Không thể tạo đơn thanh toán."
+      );
+    }
+
+    if (!result.checkout_url) {
+      throw new Error("Không nhận được đường dẫn thanh toán.");
+    }
+
+    if (
+      window.pywebview &&
+      window.pywebview.api &&
+      window.pywebview.api.open_external_url
+    ) {
+      const openResult =
+        await window.pywebview.api.open_external_url(
+          result.checkout_url
+        );
+
+      if (!openResult || !openResult.ok) {
+        throw new Error(
+          openResult?.message ||
+          "Không thể mở trang thanh toán."
+        );
+      }
+    } else {
+      window.open(result.checkout_url, "_blank");
+    }
+
+  } catch (error) {
+    alert(
+      error.message ||
+      "Có lỗi khi tạo đơn thanh toán."
+    );
+  } finally {
+    if (paymentButton) {
+      paymentButton.disabled = false;
+      paymentButton.textContent = "Tiếp tục thanh toán";
+    }
+  }
+}
 const box = document.getElementById("text");
 
 let previousText = "";
@@ -692,8 +1646,9 @@ async function translateText() {
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
-        },
+  "Content-Type": "application/json",
+  "Authorization": `Bearer ${sessionStorage.getItem("voxviet_access_token") || ""}`
+},
         body: JSON.stringify({
           text: box.value,
           direction: direction
@@ -1036,19 +1991,21 @@ const progressTimer = setInterval(() => {
   );
 
   try {
-    const response = await fetch("/api/tts", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        text: box.value,
-        language: language,
-        voice: requestVoice || null,
-        style: style
-      })
-    });
-
+    const response = await authenticatedFetch(
+  "/api/tts",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      text: box.value,
+      language: language,
+      voice: requestVoice || null,
+      style: style
+    })
+  }
+);
     if (!response.ok) {
       let detail = "Không thể tạo giọng đọc AI.";
 
@@ -1062,6 +2019,7 @@ const progressTimer = setInterval(() => {
     }
 
     let blob = await response.blob();
+    await loadAccountUsage();
     if (voice === "custom_voice") {
     const formData = new FormData();
     formData.append("source_file", blob, "source.wav");

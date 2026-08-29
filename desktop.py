@@ -9,6 +9,8 @@ AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
 
 import uvicorn
 import webview
+import webbrowser
+from urllib.parse import urlparse
 
 from app import app
 class DesktopApi:
@@ -67,6 +69,28 @@ class DesktopApi:
             "path": file_path
         }
 
+    def open_external_url(self, url):
+        try:
+            parsed = urlparse(url)
+
+            if parsed.scheme != "https" or parsed.hostname != "pay.payos.vn":
+                return {
+                    "ok": False,
+                    "message": "Đường dẫn thanh toán không hợp lệ."
+                }
+
+            webbrowser.open(url, new=2)
+
+            return {
+                "ok": True,
+                "message": "Đã mở trang thanh toán."
+            }
+
+        except Exception as exc:
+            return {
+                "ok": False,
+                "message": str(exc)
+            }
 def run_server():
     config = uvicorn.Config(
         app,

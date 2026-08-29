@@ -1,0 +1,16 @@
+﻿.venv/
+.venv-en/
+.venv-voice/
+
+__pycache__/
+*.pyc
+*.pyo
+
+auth_config.py
+.env
+.env.*
+
+kokoro-test*.wav
+
+app_before_*.py
+index_before_*.html

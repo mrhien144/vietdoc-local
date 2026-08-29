@@ -3,13 +3,14 @@ import io
 import re
 from functools import lru_cache
 from threading import Lock
-
+import httpx
+from datetime import datetime, timezone
 from argostranslate import package as argos_package
 from argostranslate import translate as argos_translate
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
-
+from auth_config import SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
 
 app = FastAPI(
     title="VietDoc Local",
@@ -19,6 +20,11 @@ app = FastAPI(
 
 BASE_DIR = Path(__file__).resolve().parent
 
+# Hạn mức thử nghiệm để kiểm tra cơ chế FREE / PRO
+FREE_MONTHLY_CHAR_LIMIT = 5000
+STANDARD_MONTHLY_CHAR_LIMIT = 150000
+SPECIAL_MONTHLY_CHAR_LIMIT = 350000
+VIP_MONTHLY_CHAR_LIMIT = 1000000
 DIACRITIC_MODEL_ID = "nrl-ai/vn-diacritic-small"
 ARGOS_INSTALL_LOCK = Lock()
 TTS_LOCK = Lock()
@@ -34,6 +40,24 @@ class TTSRequest(BaseModel):
     language: str = "vi"
     voice: str | None = None
     style: str = "tu_nhien"
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+
+class PaymentCreateRequest(BaseModel):
+    plan: str
+    months: int
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 @lru_cache(maxsize=1)
@@ -93,6 +117,527 @@ def ensure_argos_pair(from_code: str, to_code: str):
         package_to_install.install()
 
 
+@app.post("/api/auth/register")
+def register_user(data: RegisterRequest):
+    email = data.email.strip().lower()
+    password = data.password
+
+    if not email or not password:
+        raise HTTPException(
+            status_code=400,
+            detail="Vui lòng nhập đầy đủ email và mật khẩu."
+        )
+
+    if len(password) < 6:
+        raise HTTPException(
+            status_code=400,
+            detail="Mật khẩu phải có ít nhất 6 ký tự."
+        )
+
+    try:
+        response = httpx.post(
+            f"{SUPABASE_URL}/auth/v1/signup",
+            headers={
+                "apikey": SUPABASE_PUBLISHABLE_KEY,
+                "Content-Type": "application/json"
+            },
+            json={
+                "email": email,
+                "password": password
+            },
+            timeout=20.0
+        )
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể kết nối máy chủ đăng ký tài khoản."
+        ) from exc
+
+    try:
+        result = response.json()
+    except Exception:
+        result = {}
+
+    if response.status_code >= 400:
+        detail = (
+            result.get("msg")
+            or result.get("message")
+            or result.get("error_description")
+            or "Không thể đăng ký tài khoản."
+        )
+
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=detail
+        )
+
+    user = result.get("user") or {}
+    session = result.get("session")
+
+    return {
+        "ok": True,
+        "message": (
+            "Đăng ký thành công. Vui lòng kiểm tra email để xác nhận tài khoản."
+            if session is None
+            else "Đăng ký tài khoản thành công."
+        ),
+        "user": {
+            "id": user.get("id"),
+            "email": user.get("email")
+        },
+        "email_confirmation_required": session is None
+    }
+
+
+@app.post("/api/auth/login")
+def login_user(data: LoginRequest):
+    email = data.email.strip().lower()
+    password = data.password
+
+    if not email or not password:
+        raise HTTPException(
+            status_code=400,
+            detail="Vui lòng nhập đầy đủ email và mật khẩu."
+        )
+
+    try:
+        response = httpx.post(
+            f"{SUPABASE_URL}/auth/v1/token",
+            params={
+                "grant_type": "password"
+            },
+            headers={
+                "apikey": SUPABASE_PUBLISHABLE_KEY,
+                "Content-Type": "application/json"
+            },
+            json={
+                "email": email,
+                "password": password
+            },
+            timeout=20.0
+        )
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể kết nối máy chủ đăng nhập."
+        ) from exc
+
+    try:
+        result = response.json()
+    except Exception:
+        result = {}
+
+    if response.status_code >= 400:
+        detail = (
+            result.get("msg")
+            or result.get("message")
+            or result.get("error_description")
+            or "Không thể đăng nhập."
+        )
+
+        if "invalid login credentials" in detail.lower():
+            raise HTTPException(
+                status_code=401,
+                detail="Email hoặc mật khẩu không đúng."
+            )
+
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=detail
+        )
+
+    user = result.get("user") or {}
+
+    return {
+        "ok": True,
+        "message": "Đăng nhập thành công.",
+        "access_token": result.get("access_token"),
+        "refresh_token": result.get("refresh_token"),
+        "expires_in": result.get("expires_in"),
+        "token_type": result.get("token_type"),
+        "user": {
+            "id": user.get("id"),
+            "email": user.get("email")
+        }
+    }
+
+@app.post("/api/auth/refresh")
+def refresh_user_token(data: RefreshRequest):
+    refresh_token = data.refresh_token.strip()
+
+    if not refresh_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Thiếu refresh token."
+        )
+
+    try:
+        response = httpx.post(
+            f"{SUPABASE_URL}/auth/v1/token",
+            params={
+                "grant_type": "refresh_token"
+            },
+            headers={
+                "apikey": SUPABASE_PUBLISHABLE_KEY,
+                "Content-Type": "application/json"
+            },
+            json={
+                "refresh_token": refresh_token
+            },
+            timeout=20.0
+        )
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể kết nối máy chủ làm mới phiên đăng nhập."
+        ) from exc
+
+    try:
+        result = response.json()
+    except Exception:
+        result = {}
+
+    if response.status_code >= 400:
+        detail = (
+            result.get("msg")
+            or result.get("message")
+            or result.get("error_description")
+            or "Không thể làm mới phiên đăng nhập."
+        )
+
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=detail
+        )
+
+    return {
+        "ok": True,
+        "access_token": result.get("access_token"),
+        "refresh_token": result.get("refresh_token"),
+        "expires_in": result.get("expires_in"),
+        "token_type": result.get("token_type")
+    }
+
+
+def require_user(
+    authorization: str | None = Header(default=None)
+):
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Bạn chưa đăng nhập."
+        )
+
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Token đăng nhập không hợp lệ."
+        )
+
+    access_token = authorization.split(" ", 1)[1].strip()
+
+    if not access_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Token đăng nhập không hợp lệ."
+        )
+
+    try:
+        response = httpx.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={
+                "apikey": SUPABASE_PUBLISHABLE_KEY,
+                "Authorization": f"Bearer {access_token}"
+            },
+            timeout=20.0
+        )
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể xác thực tài khoản."
+        ) from exc
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=401,
+            detail="Phiên đăng nhập đã hết hạn hoặc không hợp lệ."
+        )
+
+    try:
+        user = response.json()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="Không đọc được thông tin tài khoản."
+        ) from exc
+
+    return user
+@app.get("/api/account/profile")
+def get_account_profile(
+    authorization: str | None = Header(default=None),
+    user=Depends(require_user)
+):
+    user_id = user.get("id")
+
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Không xác định được tài khoản."
+        )
+
+    access_token = authorization.split(" ", 1)[1].strip()
+
+    try:
+        response = httpx.get(
+            f"{SUPABASE_URL}/rest/v1/profiles",
+            headers={
+                "apikey": SUPABASE_PUBLISHABLE_KEY,
+                "Authorization": f"Bearer {access_token}"
+            },
+            params={
+                "id": f"eq.{user_id}",
+                "select": "id,email,plan,plan_expires_at"
+            },
+            timeout=20.0
+        )
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể đọc thông tin gói tài khoản."
+        ) from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail="Không thể đọc hồ sơ tài khoản."
+        )
+
+    try:
+        rows = response.json()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Dữ liệu hồ sơ tài khoản không hợp lệ."
+        ) from exc
+
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy hồ sơ tài khoản."
+        )
+
+    profile = rows[0]
+
+    stored_plan = str(
+        profile.get("plan") or "free"
+    ).lower()
+
+    expires_at = profile.get("plan_expires_at")
+
+    effective_plan = "free"
+
+    if (
+        stored_plan in {"standard", "special", "vip"}
+        and expires_at
+    ):
+        try:
+            expires_dt = datetime.fromisoformat(
+                expires_at.replace("Z", "+00:00")
+            )
+
+            if expires_dt > datetime.now(timezone.utc):
+                effective_plan = stored_plan
+
+        except (ValueError, TypeError):
+            effective_plan = "free"
+
+    profile["plan"] = effective_plan
+
+    return {
+        "ok": True,
+        "profile": profile
+    }
+@app.get("/api/account/usage")
+def get_account_usage(
+    authorization: str | None = Header(default=None),
+    user=Depends(require_user)
+):
+    user_id = user.get("id")
+
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Không xác định được tài khoản."
+        )
+
+    access_token = authorization.split(" ", 1)[1].strip()
+
+    month_start = (
+        datetime.now(timezone.utc)
+        .date()
+        .replace(day=1)
+        .isoformat()
+    )
+
+    try:
+        response = httpx.get(
+            f"{SUPABASE_URL}/rest/v1/tts_usage_monthly",
+            headers={
+                "apikey": SUPABASE_PUBLISHABLE_KEY,
+                "Authorization": f"Bearer {access_token}"
+            },
+            params={
+                "user_id": f"eq.{user_id}",
+                "month_start": f"eq.{month_start}",
+                "select": "characters_used"
+            },
+            timeout=20.0
+        )
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể đọc hạn mức sử dụng."
+        ) from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail="Không thể đọc dữ liệu sử dụng."
+        )
+
+    try:
+        rows = response.json()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Dữ liệu sử dụng không hợp lệ."
+        ) from exc
+
+    characters_used = 0
+
+    if rows:
+        characters_used = int(
+            rows[0].get("characters_used") or 0
+        )
+
+        profile_result = get_account_profile(
+        authorization=authorization,
+        user=user
+    )
+
+    profile = profile_result.get("profile") or {}
+
+    effective_plan = str(
+        profile.get("plan") or "free"
+    ).lower()
+
+    monthly_limit = {
+        "free": FREE_MONTHLY_CHAR_LIMIT,
+        "standard": STANDARD_MONTHLY_CHAR_LIMIT,
+        "special": SPECIAL_MONTHLY_CHAR_LIMIT,
+        "vip": VIP_MONTHLY_CHAR_LIMIT
+    }.get(
+        effective_plan,
+        FREE_MONTHLY_CHAR_LIMIT
+    )
+
+    characters_remaining = max(
+        monthly_limit - characters_used,
+        0
+    )
+
+    return {
+        "ok": True,
+        "month_start": month_start,
+        "plan": effective_plan,
+        "characters_used": characters_used,
+        "monthly_limit": monthly_limit,
+        "characters_remaining": characters_remaining
+    }
+@app.post("/api/payment/create")
+def create_payment(
+    data: PaymentCreateRequest,
+    authorization: str | None = Header(default=None),
+    user=Depends(require_user)
+):
+    plan = data.plan.strip().lower()
+    months = data.months
+
+    if plan not in {"standard", "special", "vip"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Gói nâng cấp không hợp lệ."
+        )
+
+    if months not in {1, 12, 24, 60}:
+        raise HTTPException(
+            status_code=400,
+            detail="Thời hạn nâng cấp không hợp lệ."
+        )
+
+    access_token = authorization.split(" ", 1)[1].strip()
+
+    try:
+        response = httpx.post(
+            f"{SUPABASE_URL}/functions/v1/create-payos-payment-v2",
+            headers={
+                "apikey": SUPABASE_PUBLISHABLE_KEY,
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "plan": plan,
+                "months": months
+            },
+            timeout=30.0
+        )
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể kết nối máy chủ thanh toán."
+        ) from exc
+
+    try:
+        result = response.json()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Máy chủ thanh toán trả dữ liệu không hợp lệ."
+        ) from exc
+
+    if response.status_code >= 400 or not result.get("ok"):
+        detail = (
+            result.get("message")
+            or "Không thể tạo đơn thanh toán."
+        )
+
+        status_code = (
+            response.status_code
+            if 400 <= response.status_code < 600
+            else 502
+        )
+
+        raise HTTPException(
+            status_code=status_code,
+            detail=detail
+        )
+
+    return {
+        "ok": True,
+        "order_code": result.get("order_code"),
+        "plan": result.get("plan"),
+        "months": result.get("months"),
+        "amount": result.get("amount"),
+        "checkout_url": result.get("checkout_url"),
+        "payment_link_id": result.get("payment_link_id")
+    }
 @app.get("/")
 def home():
     return FileResponse(BASE_DIR / "index.html")
@@ -126,7 +671,10 @@ def health():
     }
 
 @app.post("/api/translate")
-def translate_text(data: TranslationRequest):
+def translate_text(
+    data: TranslationRequest,
+    user=Depends(require_user)
+):
 
     text = data.text.strip()
 
@@ -226,7 +774,11 @@ def tts_voices(language: str = "vi"):
 
 
 @app.post("/api/tts")
-def text_to_speech(data: TTSRequest):
+def text_to_speech(
+    data: TTSRequest,
+    authorization: str | None = Header(default=None),
+    user=Depends(require_user)
+):
 
     text = data.text.strip()
 
@@ -302,7 +854,54 @@ def text_to_speech(data: TTSRequest):
             )
 
             wav_bytes = buffer.getvalue()
+        access_token = authorization.split(" ", 1)[1].strip()
 
+        try:
+            usage_response = httpx.post(
+                f"{SUPABASE_URL}/rest/v1/rpc/consume_tts_usage",
+                headers={
+                    "apikey": SUPABASE_PUBLISHABLE_KEY,
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "p_characters": len(text)
+                },
+                timeout=20.0
+            )
+
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Không thể kiểm tra hạn mức sử dụng."
+            ) from exc
+
+        if usage_response.status_code >= 400:
+            raise HTTPException(
+                status_code=502,
+                detail="Không thể kiểm tra hạn mức ký tự."
+            )
+
+        try:
+            usage_result = usage_response.json()
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="Dữ liệu hạn mức không hợp lệ."
+            ) from exc
+
+        if not usage_result.get("ok", False):
+            remaining = int(
+                usage_result.get("characters_remaining") or 0
+            )
+
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Bạn đã vượt hạn mức ký tự tháng này. "
+                    f"Hiện chỉ còn {remaining} ký tự."
+                )
+            )
         return Response(
             content=wav_bytes,
             media_type="audio/wav",
@@ -312,6 +911,8 @@ def text_to_speech(data: TTSRequest):
             }
         )
 
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=500,
