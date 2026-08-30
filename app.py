@@ -60,6 +60,14 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str
+
+
 @lru_cache(maxsize=1)
 def get_tts_engine():
     from vieneu import Vieneu
@@ -262,6 +270,144 @@ def login_user(data: LoginRequest):
             "email": user.get("email")
         }
     }
+
+@app.post("/api/auth/forgot-password")
+def forgot_password(data: ForgotPasswordRequest):
+    email = data.email.strip().lower()
+
+    if not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Vui lòng nhập email."
+        )
+
+    try:
+        response = httpx.post(
+            f"{SUPABASE_URL}/auth/v1/recover",
+            params={
+                "redirect_to": "http://127.0.0.1:8765/?reset_password=1"
+            },
+            headers={
+                "apikey": SUPABASE_PUBLISHABLE_KEY,
+                "Content-Type": "application/json"
+            },
+            json={
+                "email": email
+            },
+            timeout=20.0
+        )
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể kết nối máy chủ đặt lại mật khẩu."
+        ) from exc
+
+    try:
+        result = response.json()
+    except Exception:
+        result = {}
+
+    if response.status_code >= 400:
+        detail = (
+            result.get("msg")
+            or result.get("message")
+            or result.get("error_description")
+            or "Không thể gửi email đặt lại mật khẩu."
+        )
+
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=detail
+        )
+
+    return {
+        "ok": True,
+        "message": (
+            "Nếu email đã được đăng ký, hệ thống sẽ gửi "
+            "liên kết đặt lại mật khẩu đến email đó."
+        )
+    }
+
+
+@app.post("/api/auth/reset-password")
+def reset_password(
+    data: ResetPasswordRequest,
+    authorization: str | None = Header(default=None)
+):
+    new_password = data.new_password
+
+    if len(new_password) < 6:
+        raise HTTPException(
+            status_code=400,
+            detail="Mật khẩu mới phải có ít nhất 6 ký tự."
+        )
+
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Thiếu phiên đặt lại mật khẩu."
+        )
+
+    parts = authorization.split(" ", 1)
+
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Phiên đặt lại mật khẩu không hợp lệ."
+        )
+
+    recovery_token = parts[1].strip()
+
+    if not recovery_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Phiên đặt lại mật khẩu không hợp lệ."
+        )
+
+    try:
+        response = httpx.put(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={
+                "apikey": SUPABASE_PUBLISHABLE_KEY,
+                "Authorization": f"Bearer {recovery_token}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "password": new_password
+            },
+            timeout=20.0
+        )
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể kết nối máy chủ đặt lại mật khẩu."
+        ) from exc
+
+    try:
+        result = response.json()
+    except Exception:
+        result = {}
+
+    if response.status_code >= 400:
+        detail = (
+            result.get("msg")
+            or result.get("message")
+            or result.get("error_description")
+            or "Không thể đặt lại mật khẩu."
+        )
+
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=detail
+        )
+
+    return {
+        "ok": True,
+        "message": "Đặt lại mật khẩu thành công."
+    }
+
 
 @app.post("/api/auth/refresh")
 def refresh_user_token(data: RefreshRequest):
