@@ -511,7 +511,7 @@ textarea:focus {
   <div class="brand">VoxViet AI</div>
 </div>
 
-<div class="version">Version 1.0 Desktop</div>
+<div class="version" id="appVersion">Version 1.0.0</div>
 
     <div class="menu-title">Văn bản</div>
 
@@ -1083,8 +1083,161 @@ textarea:focus {
 </div>
   </div>
 </div>
+<!-- UPDATE MODAL -->
+<div id="updateModal"
+     style="
+       display:none;
+       position:fixed;
+       inset:0;
+       z-index:10000;
+       background:rgba(0,0,0,.45);
+       align-items:center;
+       justify-content:center;
+       padding:20px;
+     ">
+
+  <div style="
+       width:min(520px,94vw);
+       background:#ffffff;
+       border-radius:18px;
+       padding:24px;
+       box-shadow:0 20px 60px rgba(0,0,0,.25);
+     ">
+
+    <div style="
+         display:flex;
+         justify-content:space-between;
+         align-items:center;
+         gap:16px;
+         margin-bottom:16px;
+       ">
+
+      <div>
+        <h2 style="margin:0 0 6px;">
+          Có phiên bản VoxViet AI mới
+        </h2>
+
+        <div id="updateVersionText"
+             style="font-size:14px;color:#475569;">
+          Phiên bản mới
+        </div>
+      </div>
+
+      <button type="button"
+              onclick="closeUpdateModal()"
+              style="
+                font-size:20px;
+                width:38px;
+                height:38px;
+                padding:0;
+              ">
+        ×
+      </button>
+
+    </div>
+
+    <div id="updateNotes"
+         style="
+           font-size:14px;
+           line-height:1.7;
+           padding:14px;
+           background:#f8fafc;
+           border-radius:12px;
+           margin-bottom:18px;
+         ">
+    </div>
+
+    <div style="
+         display:flex;
+         justify-content:flex-end;
+         gap:10px;
+       ">
+
+      <button type="button"
+              onclick="closeUpdateModal()">
+        Để sau
+      </button>
+
+      <button id="updateNowButton"
+              type="button"
+              class="primary"
+              onclick="startAppUpdate()">
+        Cập nhật ngay
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
 <script>
 let authMode = "login";
+let pendingAppUpdate = null;
+
+async function checkForAppUpdate() {
+  try {
+    const response = await fetch(
+      "/api/update/check",
+      {
+        method: "GET",
+        cache: "no-store"
+      }
+    );
+
+    if (!response.ok) {
+      return;
+    }
+
+    const result = await response.json();
+
+    if (!result.update_available) {
+      return;
+    }
+
+    pendingAppUpdate = result;
+
+    document.getElementById("updateVersionText").textContent =
+      "Phiên bản hiện tại " +
+      result.current_version +
+      " → Phiên bản mới " +
+      result.latest_version;
+
+    document.getElementById("updateNotes").textContent =
+      result.notes ||
+      "Có phiên bản VoxViet AI mới.";
+
+    document.getElementById("updateModal").style.display =
+      "flex";
+
+  } catch (error) {
+    console.error(
+      "Không thể kiểm tra bản cập nhật:",
+      error
+    );
+  }
+}
+
+function closeUpdateModal() {
+  document.getElementById("updateModal").style.display =
+    "none";
+}
+
+function startAppUpdate() {
+  if (
+    !pendingAppUpdate ||
+    !pendingAppUpdate.download_url
+  ) {
+    alert(
+      "Đã phát hiện phiên bản mới, nhưng chưa có file cài đặt để tải xuống."
+    );
+    return;
+  }
+
+  alert(
+    "Phần tải và cài đặt bản cập nhật sẽ được kết nối ở bước tiếp theo."
+  );
+}
+
 function handlePasswordRecoveryLink() {
   const queryParams =
     new URLSearchParams(window.location.search);
@@ -1644,6 +1797,29 @@ async function loadAccountProfile() {
     document.getElementById("planBadge").textContent = "—";
   }
 }
+async function loadAppVersion() {
+  try {
+    const response = await fetch("/api/health");
+
+    if (!response.ok) {
+      return;
+    }
+
+    const result = await response.json();
+
+    if (result.version) {
+      document.getElementById("appVersion").textContent =
+        "Version " + result.version;
+    }
+
+  } catch (error) {
+    console.error(
+      "Không tải được phiên bản ứng dụng:",
+      error
+    );
+  }
+}
+
 function logoutUser() {
   sessionStorage.removeItem("voxviet_access_token");
   sessionStorage.removeItem("voxviet_refresh_token");
@@ -2464,6 +2640,8 @@ function showMessage(text) {
 
 
 updateStats();
+loadAppVersion();
+checkForAppUpdate();
 
 </script>
 

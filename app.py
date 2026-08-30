@@ -12,9 +12,12 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from auth_config import SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
 
+APP_VERSION = "1.0.0"
+UPDATE_MANIFEST_URL = "https://fgtqhfworgxnldoxgmbd.supabase.co/storage/v1/object/public/voxviet-updates/latest.json"
+
 app = FastAPI(
     title="VietDoc Local",
-    version="2.1.0",
+    version=APP_VERSION,
     description="Vietnamese document and language utility for SoloHost"
 )
 
@@ -812,9 +815,80 @@ def health():
     return {
         "status": "ok",
         "app": "VietDoc Local",
-        "version": "2.1.0",
+        "version": APP_VERSION,
         "diacritic_model": DIACRITIC_MODEL_ID
     }
+
+@app.get("/api/update/check")
+def check_for_update():
+    try:
+        response = httpx.get(
+            UPDATE_MANIFEST_URL,
+            params={
+                "t": int(
+                    datetime.now(timezone.utc).timestamp()
+                )
+            },
+            timeout=10.0
+        )
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể kiểm tra bản cập nhật."
+        ) from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail="Máy chủ cập nhật không phản hồi hợp lệ."
+        )
+
+    try:
+        manifest = response.json()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Dữ liệu phiên bản cập nhật không hợp lệ."
+        ) from exc
+
+    latest_version = str(
+        manifest.get("version") or ""
+    ).strip()
+
+    if not re.fullmatch(
+        r"\d+\.\d+\.\d+",
+        latest_version
+    ):
+        raise HTTPException(
+            status_code=502,
+            detail="Số phiên bản cập nhật không hợp lệ."
+        )
+
+    def version_tuple(value):
+        return tuple(
+            int(part)
+            for part in value.split(".")
+        )
+
+    update_available = (
+        version_tuple(latest_version)
+        > version_tuple(APP_VERSION)
+    )
+
+    return {
+        "ok": True,
+        "current_version": APP_VERSION,
+        "latest_version": latest_version,
+        "update_available": update_available,
+        "download_url": manifest.get("download_url") or "",
+        "sha256": manifest.get("sha256") or "",
+        "notes": manifest.get("notes") or "",
+        "mandatory": bool(
+            manifest.get("mandatory", False)
+        )
+    }
+
 
 @app.post("/api/translate")
 def translate_text(
