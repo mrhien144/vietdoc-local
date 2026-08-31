@@ -2,6 +2,11 @@ import threading
 import time
 import base64
 import io
+import hashlib
+import os
+import tempfile
+import urllib.request
+from pathlib import Path
 
 from pydub import AudioSegment
 import imageio_ffmpeg
@@ -90,6 +95,101 @@ class DesktopApi:
             return {
                 "ok": False,
                 "message": str(exc)
+            }
+    def install_update(self, download_url, expected_sha256):
+        try:
+            parsed = urlparse(download_url)
+            allowed_prefix = "/mrhien144/vietdoc-local/releases/download/"
+
+            if (
+                parsed.scheme != "https"
+                or parsed.hostname != "github.com"
+                or not parsed.path.startswith(allowed_prefix)
+            ):
+                return {
+                    "ok": False,
+                    "message": "Link cập nhật không hợp lệ."
+                }
+
+            expected_sha256 = (expected_sha256 or "").strip().lower()
+
+            if (
+                len(expected_sha256) != 64
+                or any(
+                    char not in "0123456789abcdef"
+                    for char in expected_sha256
+                )
+            ):
+                return {
+                    "ok": False,
+                    "message": "Mã SHA256 không hợp lệ."
+                }
+
+            request = urllib.request.Request(
+                download_url,
+                headers={
+                    "User-Agent": "VoxVietAI-Updater/1.0"
+                }
+            )
+
+            sha256 = hashlib.sha256()
+
+            with tempfile.NamedTemporaryFile(
+                prefix="VoxVietAI-Update-",
+                suffix=".exe",
+                delete=False
+            ) as temp_file:
+                installer_path = Path(temp_file.name)
+
+                with urllib.request.urlopen(
+                    request,
+                    timeout=120
+                ) as response:
+                    while True:
+                        chunk = response.read(1024 * 1024)
+
+                        if not chunk:
+                            break
+
+                        temp_file.write(chunk)
+                        sha256.update(chunk)
+
+            actual_sha256 = sha256.hexdigest().lower()
+
+            if actual_sha256 != expected_sha256:
+                try:
+                    installer_path.unlink()
+                except OSError:
+                    pass
+
+                return {
+                    "ok": False,
+                    "message": "SHA256 không khớp. Đã hủy cập nhật."
+                }
+
+            os.startfile(str(installer_path), "runas")
+
+            def close_after_launch():
+                time.sleep(1.5)
+                window = webview.windows[0] if webview.windows else None
+
+                if window:
+                    window.destroy()
+
+            threading.Thread(
+                target=close_after_launch,
+                daemon=True
+            ).start()
+
+            return {
+                "ok": True,
+                "message": "Đã xác minh và mở trình cài đặt."
+            }
+
+        except Exception as exc:
+            return {
+                "ok": False,
+                "message": f"Không thể cập nhật: {exc}"
             }
 def run_server():
     config = uvicorn.Config(

@@ -1191,20 +1191,66 @@ function closeUpdateModal() {
     "none";
 }
 
-function startAppUpdate() {
+async function startAppUpdate() {
   if (
     !pendingAppUpdate ||
-    !pendingAppUpdate.download_url
+    !pendingAppUpdate.download_url ||
+    !pendingAppUpdate.sha256
   ) {
     alert(
-      "Đã phát hiện phiên bản mới, nhưng chưa có file cài đặt để tải xuống."
+      "Bản cập nhật chưa có đủ thông tin tải xuống."
     );
     return;
   }
 
-  alert(
-    "Phần tải và cài đặt bản cập nhật sẽ được kết nối ở bước tiếp theo."
-  );
+  const button =
+    document.getElementById("updateNowButton");
+
+  const originalText = button.textContent;
+
+  button.disabled = true;
+  button.textContent = "Đang tải bản cập nhật...";
+
+  try {
+    if (
+      !window.pywebview ||
+      !window.pywebview.api ||
+      !window.pywebview.api.install_update
+    ) {
+      throw new Error(
+        "Không tìm thấy trình cập nhật của VoxViet AI."
+      );
+    }
+
+    const result =
+      await window.pywebview.api.install_update(
+        pendingAppUpdate.download_url,
+        pendingAppUpdate.sha256
+      );
+
+    if (!result || !result.ok) {
+      alert(
+        result?.message ||
+        "Không thể cài đặt bản cập nhật."
+      );
+
+      button.disabled = false;
+      button.textContent = originalText;
+      return;
+    }
+
+    button.textContent =
+      "Đang mở trình cài đặt...";
+
+  } catch (error) {
+    alert(
+      "Không thể cập nhật: " +
+      (error?.message || error)
+    );
+
+    button.disabled = false;
+    button.textContent = originalText;
+  }
 }
 
 function handlePasswordRecoveryLink() {
