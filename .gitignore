@@ -25,3 +25,5 @@ VoxVietAI_before_excludes.spec
 build-env-packages.txt
 dist-files.txt
 tts_debug.log
+
+installer/
