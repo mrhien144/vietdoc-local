@@ -14,3 +14,14 @@ kokoro-test*.wav
 
 app_before_*.py
 index_before_*.html
+.venv-build/
+build/
+dist/
+requirements_before_*.txt
+
+# Local build/audit files
+VoxVietAI_FULL_AUDIT.zip
+VoxVietAI_before_excludes.spec
+build-env-packages.txt
+dist-files.txt
+tts_debug.log

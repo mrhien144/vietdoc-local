@@ -93,10 +93,10 @@ class DesktopApi:
             }
 def run_server():
     config = uvicorn.Config(
-        app,
-        host="127.0.0.1",
-        port=8765,
-        log_level="warning"
+    app,
+    host="127.0.0.1",
+    port=8765,
+    log_level="warning"
     )
 
     server = uvicorn.Server(config)

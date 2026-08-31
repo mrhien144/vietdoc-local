@@ -3,11 +3,10 @@ uvicorn[standard]
 python-multipart
 transformers==4.57.6
 torch
-sentencepiece
-argostranslate
 vieneu==3.3.0
 pywebview
 pydub
 imageio-ffmpeg
 kokoro==0.9.4
 soundfile
+httpx
