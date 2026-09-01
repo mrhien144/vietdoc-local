@@ -1,7 +1,7 @@
-﻿{
+{
   "version": "1.0.0",
-  "download_url": "",
-  "sha256": "",
-  "notes": "Bản thử nghiệm kiểm tra cơ chế Auto Update.",
+  "download_url": "https://github.com/mrhien144/vietdoc-local/releases/download/v1.0.0/VoxVietAI-Setup-1.0.0.exe",
+  "sha256": "E7CEAC0A61D671870C64D34D40C5AD4EB9A2634953A0B2432551DFCB09F797B6",
+  "notes": "Bản phát hành chính thức VoxViet AI 1.0.0.",
   "mandatory": false
 }
