@@ -681,7 +681,24 @@ textarea:focus {
         <div class="feature" style="grid-column:1 / -1;">
   <h3>🔊 Văn bản → Giọng nói AI</h3>
   <p>Chuyển văn bản thành giọng đọc AI tiếng Việt tự nhiên.</p>
+  <div style="display:flex;gap:8px;margin-bottom:12px;">
+    <button id="singleTTSModeButton"
+            type="button"
+            class="ai"
+            onclick="showTTSMode('single')"
+            style="flex:1;">
+      🔊 Tạo giọng đơn
+    </button>
 
+    <button id="dialogueTTSModeButton"
+            type="button"
+            onclick="showTTSMode('dialogue')"
+            style="flex:1;">
+      👥 Tạo hội thoại
+    </button>
+  </div>
+
+  <div id="singleTTSPanel">
   <select id="ttsLanguage" onchange="loadTTSVoices()"
         style="width:100%;padding:9px;margin-bottom:8px;border-radius:8px;border:1px solid #d1d5db;">
   <option value="vi">🇻🇳 Tiếng Việt</option>
@@ -754,6 +771,75 @@ textarea:focus {
          controls
          style="width:100%;margin-top:10px;display:none;">
   </audio>
+  </div>
+
+  <div id="dialogueTTSPanel"
+       style="display:none;margin-top:10px;">
+
+    <label style="display:block;font-weight:600;margin-bottom:6px;">
+      Kịch bản hội thoại
+    </label>
+
+    <textarea id="dialogueScript"
+              rows="10"
+              placeholder="Nam: Chào Lan, hôm nay công việc thế nào?&#10;Lan: Em vẫn ổn. Còn anh?&#10;Nam: Anh đang chuẩn bị một dự án mới."
+              style="width:100%;padding:10px;border-radius:8px;border:1px solid #d1d5db;resize:vertical;"></textarea>
+
+    <div style="margin-top:10px;">
+      <button type="button"
+              onclick="prepareDialogueSpeakers()"
+              style="width:100%;">
+        👥 Phân tích nhân vật
+      </button>
+    </div>
+
+    <div id="dialogueSpeakers"
+         style="margin-top:12px;">
+    </div>
+
+    <div style="margin-top:12px;">
+      <label for="dialoguePauseMs"
+             style="display:block;margin-bottom:5px;">
+        Khoảng nghỉ giữa các lượt thoại
+      </label>
+
+      <input id="dialoguePauseMs"
+             type="number"
+             min="0"
+             max="5000"
+             step="100"
+             value="500"
+             style="width:100%;padding:9px;border-radius:8px;border:1px solid #d1d5db;">
+    </div>
+
+    <button id="generateDialogueButton"
+            class="ai"
+            type="button"
+            onclick="generateDialogueTTS()"
+            disabled
+            style="width:100%;margin-top:12px;">
+      🎙 Tạo hội thoại AI
+    </button>
+
+    <div style="margin-top:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span>Tiến trình tạo hội thoại</span>
+        <span id="dialogueProgressText">0%</span>
+      </div>
+
+      <div style="width:100%;height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;">
+        <div id="dialogueProgressBar"
+             style="width:0%;height:100%;background:#4f46e5;transition:width .3s ease;">
+        </div>
+      </div>
+    </div>
+
+    <audio id="dialogueAudio"
+           controls
+           style="width:100%;margin-top:10px;display:none;">
+    </audio>
+
+  </div>
 </div>
 
         <div class="feature" style="display:none;">
@@ -2170,7 +2256,383 @@ function speakText() {
 let currentTTSUrl = null;
 let currentTTSBlob = null;
 let currentCustomVoiceFile = null;
+let currentDialogueSpeakers = [];
+let currentDialogueLines = [];
+let currentDialogueUrl = null;
+let currentDialogueBlob = null;
 
+function showTTSMode(mode) {
+  const singlePanel =
+    document.getElementById("singleTTSPanel");
+
+  const dialoguePanel =
+    document.getElementById("dialogueTTSPanel");
+
+  const singleButton =
+    document.getElementById("singleTTSModeButton");
+
+  const dialogueButton =
+    document.getElementById("dialogueTTSModeButton");
+
+  if (mode === "dialogue") {
+    singlePanel.style.display = "none";
+    dialoguePanel.style.display = "block";
+
+    singleButton.classList.remove("ai");
+    dialogueButton.classList.add("ai");
+  } else {
+    singlePanel.style.display = "block";
+    dialoguePanel.style.display = "none";
+
+    dialogueButton.classList.remove("ai");
+    singleButton.classList.add("ai");
+  }
+}
+
+
+function prepareDialogueSpeakers() {
+  const script =
+    document.getElementById("dialogueScript").value.trim();
+
+  const container =
+    document.getElementById("dialogueSpeakers");
+
+  const generateButton =
+    document.getElementById("generateDialogueButton");
+
+  currentDialogueSpeakers = [];
+  currentDialogueLines = [];
+
+  container.innerHTML = "";
+  generateButton.disabled = true;
+
+  if (!script) {
+    showMessage(
+      "Vui lòng nhập kịch bản hội thoại."
+    );
+    return;
+  }
+
+  const speakerNames = [];
+  const lines = script.split(/\r?\n/);
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      continue;
+    }
+
+    const match = line.match(
+      /^([^:：]{1,60})\s*[:：]\s*(.+)$/
+    );
+
+    if (!match) {
+      showMessage(
+        "Mỗi lượt thoại cần có dạng: Tên nhân vật: Nội dung"
+      );
+      return;
+    }
+
+    const speaker = match[1].trim();
+    const text = match[2].trim();
+
+    if (!speaker || !text) {
+      continue;
+    }
+
+    currentDialogueLines.push({
+      speaker: speaker,
+      text: text
+    });
+
+    if (!speakerNames.includes(speaker)) {
+      speakerNames.push(speaker);
+    }
+  }
+
+  if (speakerNames.length < 2) {
+    showMessage(
+      "Hội thoại cần ít nhất 2 nhân vật khác nhau."
+    );
+    return;
+  }
+
+  currentDialogueSpeakers =
+    speakerNames.map((name) => ({
+      name: name,
+      language: "vi",
+      voice: "",
+      style: "tu_nhien"
+    }));
+
+    renderDialogueSpeakerControls();
+
+  showMessage(
+    "Đã phân tích " +
+    currentDialogueSpeakers.length +
+    " nhân vật và " +
+    currentDialogueLines.length +
+    " lượt thoại."
+  );
+}
+function renderDialogueSpeakerControls() {
+  const container =
+    document.getElementById("dialogueSpeakers");
+
+  const generateButton =
+    document.getElementById("generateDialogueButton");
+
+  container.innerHTML = "";
+  generateButton.disabled = true;
+
+  currentDialogueSpeakers.forEach(
+    (speaker, index) => {
+      const card = document.createElement("div");
+
+      card.style.padding = "12px";
+      card.style.marginBottom = "10px";
+      card.style.border = "1px solid #d1d5db";
+      card.style.borderRadius = "8px";
+
+      const title = document.createElement("strong");
+
+      title.textContent =
+        (index + 1) + ". " + speaker.name;
+
+      card.appendChild(title);
+
+      const languageLabel =
+        document.createElement("label");
+
+      languageLabel.textContent = "Ngôn ngữ";
+      languageLabel.style.display = "block";
+      languageLabel.style.marginTop = "10px";
+      languageLabel.style.marginBottom = "4px";
+
+      card.appendChild(languageLabel);
+
+      const languageSelect =
+        document.createElement("select");
+
+      languageSelect.id =
+        "dialogueLanguage_" + index;
+
+      languageSelect.style.width = "100%";
+      languageSelect.style.padding = "9px";
+      languageSelect.style.borderRadius = "8px";
+      languageSelect.style.border =
+        "1px solid #d1d5db";
+
+      languageSelect.innerHTML = `
+        <option value="vi">🇻🇳 Tiếng Việt</option>
+        <option value="en">🇬🇧 English</option>
+      `;
+
+      languageSelect.value =
+        speaker.language || "vi";
+
+      languageSelect.onchange = () => {
+        loadDialogueVoicesForSpeaker(index);
+      };
+
+      card.appendChild(languageSelect);
+
+      const voiceLabel =
+        document.createElement("label");
+
+      voiceLabel.textContent = "Giọng";
+      voiceLabel.style.display = "block";
+      voiceLabel.style.marginTop = "8px";
+      voiceLabel.style.marginBottom = "4px";
+
+      card.appendChild(voiceLabel);
+
+      const voiceSelect =
+        document.createElement("select");
+
+      voiceSelect.id =
+        "dialogueVoice_" + index;
+
+      voiceSelect.style.width = "100%";
+      voiceSelect.style.padding = "9px";
+      voiceSelect.style.borderRadius = "8px";
+      voiceSelect.style.border =
+        "1px solid #d1d5db";
+
+      voiceSelect.innerHTML =
+        '<option value="">Đang tải giọng...</option>';
+
+      voiceSelect.onchange = () => {
+        speaker.voice = voiceSelect.value;
+
+        generateButton.disabled =
+          currentDialogueSpeakers.some(
+            (item) => !item.voice
+          );
+      };
+
+      card.appendChild(voiceSelect);
+
+      const styleLabel =
+        document.createElement("label");
+
+      styleLabel.textContent = "Phong cách";
+      styleLabel.style.display = "block";
+      styleLabel.style.marginTop = "8px";
+      styleLabel.style.marginBottom = "4px";
+
+      card.appendChild(styleLabel);
+
+      const styleSelect =
+        document.createElement("select");
+
+      styleSelect.id =
+        "dialogueStyle_" + index;
+
+      styleSelect.style.width = "100%";
+      styleSelect.style.padding = "9px";
+      styleSelect.style.borderRadius = "8px";
+      styleSelect.style.border =
+        "1px solid #d1d5db";
+
+      styleSelect.innerHTML = `
+        <option value="tu_nhien">Tự nhiên</option>
+        <option value="tin_tuc">Tin tức</option>
+        <option value="doc_truyen">Kể chuyện</option>
+      `;
+
+      styleSelect.value =
+        speaker.style || "tu_nhien";
+
+      styleSelect.onchange = () => {
+        speaker.style = styleSelect.value;
+      };
+
+      card.appendChild(styleSelect);
+
+      container.appendChild(card);
+
+      loadDialogueVoicesForSpeaker(index);
+    }
+  );
+}
+
+
+async function loadDialogueVoicesForSpeaker(index) {
+  const speaker =
+    currentDialogueSpeakers[index];
+
+  const languageSelect =
+    document.getElementById(
+      "dialogueLanguage_" + index
+    );
+
+  const voiceSelect =
+    document.getElementById(
+      "dialogueVoice_" + index
+    );
+
+  const styleSelect =
+    document.getElementById(
+      "dialogueStyle_" + index
+    );
+
+  const generateButton =
+    document.getElementById(
+      "generateDialogueButton"
+    );
+
+  if (
+    !speaker ||
+    !languageSelect ||
+    !voiceSelect ||
+    !styleSelect
+  ) {
+    return;
+  }
+
+  speaker.language =
+    languageSelect.value;
+
+  if (speaker.language === "en") {
+    speaker.style = "tu_nhien";
+    styleSelect.value = "tu_nhien";
+    styleSelect.disabled = true;
+  } else {
+    styleSelect.disabled = false;
+    speaker.style = styleSelect.value;
+  }
+
+  voiceSelect.innerHTML =
+    '<option value="">Đang tải giọng...</option>';
+
+  speaker.voice = "";
+  generateButton.disabled = true;
+
+  try {
+    const response = await fetch(
+      `/api/tts/voices?language=${
+        encodeURIComponent(
+          speaker.language
+        )
+      }`
+    );
+
+    const result =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !Array.isArray(result.voices)
+    ) {
+      throw new Error(
+        "Không thể tải danh sách giọng."
+      );
+    }
+
+    voiceSelect.innerHTML = "";
+
+    result.voices.forEach((voice) => {
+      const option =
+        document.createElement("option");
+
+      option.value = voice.id;
+      option.textContent = voice.label;
+
+      voiceSelect.appendChild(option);
+    });
+
+    if (result.voices.length > 0) {
+      const defaultVoice =
+        result.voices[
+          index % result.voices.length
+        ];
+
+      voiceSelect.value =
+        defaultVoice.id;
+
+      speaker.voice =
+        defaultVoice.id;
+    }
+
+    generateButton.disabled =
+      currentDialogueSpeakers.some(
+        (item) => !item.voice
+      );
+
+  } catch (error) {
+    voiceSelect.innerHTML =
+      '<option value="">Lỗi tải giọng</option>';
+
+    showMessage(
+      "Không thể tải giọng cho " +
+      speaker.name +
+      ": " +
+      error.message
+    );
+  }
+}
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -2259,6 +2721,44 @@ async function downloadTTSAudio(audioFormat = "wav") {
   } catch (error) {
     showMessage(
       "Lỗi tải âm thanh: " + error.message
+    );
+  }
+}
+async function downloadDialogueAudio(audioFormat = "wav") {
+  if (!currentDialogueBlob) {
+    showMessage(
+      "Chưa có file hội thoại để tải."
+    );
+    return;
+  }
+
+  try {
+    const audioBase64 =
+      await blobToBase64(
+        currentDialogueBlob
+      );
+
+    const result =
+      await window.pywebview.api.save_audio(
+        audioBase64,
+        audioFormat
+      );
+
+    if (result.ok) {
+      showMessage(
+        "Đã lưu file hội thoại."
+      );
+    } else {
+      showMessage(
+        result.message ||
+        "Không thể lưu file hội thoại."
+      );
+    }
+
+  } catch (error) {
+    showMessage(
+      "Lỗi tải hội thoại: " +
+      error.message
     );
   }
 }
@@ -2433,7 +2933,204 @@ progressText.textContent = "Lỗi";
     );
   }
 }
+async function generateDialogueTTS() {
+  if (
+    currentDialogueSpeakers.length < 2 ||
+    currentDialogueLines.length === 0
+  ) {
+    showMessage(
+      "Vui lòng phân tích kịch bản trước khi tạo hội thoại."
+    );
+    return;
+  }
 
+  const missingVoice =
+    currentDialogueSpeakers.find(
+      (speaker) => !speaker.voice
+    );
+
+  if (missingVoice) {
+    showMessage(
+      "Vui lòng chọn giọng cho nhân vật: " +
+      missingVoice.name
+    );
+    return;
+  }
+
+  const pauseInput =
+    document.getElementById("dialoguePauseMs");
+
+  const generateButton =
+    document.getElementById("generateDialogueButton");
+
+  const audio =
+    document.getElementById("dialogueAudio");
+
+  const progressBar =
+    document.getElementById("dialogueProgressBar");
+
+  const progressText =
+    document.getElementById("dialogueProgressText");
+
+  let pauseMs =
+    parseInt(pauseInput.value, 10);
+
+  if (Number.isNaN(pauseMs)) {
+    pauseMs = 500;
+  }
+
+  pauseMs = Math.max(
+    0,
+    Math.min(pauseMs, 5000)
+  );
+
+  let progress = 0;
+
+  progressBar.style.width = "0%";
+  progressText.textContent = "0%";
+
+  generateButton.disabled = true;
+  generateButton.textContent =
+    "Đang tạo hội thoại...";
+
+  const progressTimer = setInterval(() => {
+    if (progress < 90) {
+      progress +=
+        Math.floor(Math.random() * 3) + 1;
+
+      if (progress > 90) {
+        progress = 90;
+      }
+
+      progressBar.style.width =
+        progress + "%";
+
+      progressText.textContent =
+        progress + "%";
+    }
+  }, 800);
+
+  showMessage(
+    "Đang tạo hội thoại AI. " +
+    "Kịch bản nhiều lượt có thể mất một chút thời gian."
+  );
+
+  try {
+    const response =
+      await authenticatedFetch(
+        "/api/tts/dialogue",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            speakers:
+              currentDialogueSpeakers.map(
+                (speaker) => ({
+                  name: speaker.name,
+                  language: speaker.language,
+                  voice: speaker.voice || null,
+                  style:
+                    speaker.style || "tu_nhien"
+                })
+              ),
+
+            lines:
+              currentDialogueLines.map(
+                (line) => ({
+                  speaker: line.speaker,
+                  text: line.text
+                })
+              ),
+
+            pause_ms: pauseMs
+          })
+        }
+      );
+
+    if (!response.ok) {
+      let detail =
+        "Không thể tạo hội thoại AI.";
+
+      try {
+        const result =
+          await response.json();
+
+        detail =
+          result.detail || detail;
+      } catch (_) {
+      }
+
+      throw new Error(detail);
+    }
+
+    const blob =
+      await response.blob();
+
+    await loadAccountUsage();
+
+    if (currentDialogueUrl) {
+      URL.revokeObjectURL(
+        currentDialogueUrl
+      );
+    }
+
+    currentDialogueBlob = blob;
+
+    currentDialogueUrl =
+      URL.createObjectURL(blob);
+
+    audio.src =
+      currentDialogueUrl;
+
+    audio.style.display =
+      "block";
+
+    audio.load();
+
+    audio.play().catch(
+      (error) =>
+        console.warn(
+          "Dialogue audio play error:",
+          error
+        )
+    );
+
+    clearInterval(progressTimer);
+
+    progress = 100;
+
+    progressBar.style.width =
+      "100%";
+
+    progressText.textContent =
+      "100%";
+
+    showMessage(
+      "Đã tạo hội thoại AI thành công."
+    );
+
+  } catch (error) {
+    clearInterval(progressTimer);
+
+    progressBar.style.width =
+      "0%";
+
+    progressText.textContent =
+      "Lỗi";
+
+    showMessage(
+      "Lỗi tạo hội thoại AI: " +
+      error.message
+    );
+
+  } finally {
+    generateButton.disabled = false;
+    generateButton.textContent =
+      "🎙 Tạo hội thoại AI";
+  }
+}
 
 function pauseTTS() {
   const audio = document.getElementById("ttsAudio");

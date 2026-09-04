@@ -36,6 +36,23 @@ class TTSRequest(BaseModel):
     language: str = "vi"
     voice: str | None = None
     style: str = "tu_nhien"
+
+class DialogueSpeaker(BaseModel):
+    name: str
+    language: str = "vi"
+    voice: str | None = None
+    style: str = "tu_nhien"
+
+
+class DialogueLine(BaseModel):
+    speaker: str
+    text: str
+
+
+class DialogueTTSRequest(BaseModel):
+    speakers: list[DialogueSpeaker]
+    lines: list[DialogueLine]
+    pause_ms: int = 400
 class RegisterRequest(BaseModel):
     email: str
     password: str
@@ -77,7 +94,72 @@ def get_english_tts_engine(lang_code: str = "a"):
     return KPipeline(lang_code=lang_code)
 
 
+def synthesize_tts_segment(
+    text: str,
+    language: str = "vi",
+    voice: str | None = None,
+    style: str = "tu_nhien"
+):
+    text = text.strip()
 
+    if not text:
+        raise ValueError("Đoạn thoại trống.")
+
+    allowed_styles = {
+        "tu_nhien",
+        "tin_tuc",
+        "doc_truyen"
+    }
+
+    style = (
+        style
+        if style in allowed_styles
+        else "tu_nhien"
+    )
+
+    if language == "en":
+        voice_id = voice or "af_heart"
+
+        lang_code = (
+            "b"
+            if voice_id.startswith(("bf_", "bm_"))
+            else "a"
+        )
+
+        pipeline = get_english_tts_engine(lang_code)
+
+        generator = pipeline(
+            text,
+            voice=voice_id
+        )
+
+        audio_parts = [
+            item[2]
+            for item in generator
+        ]
+
+        if not audio_parts:
+            raise ValueError(
+                "Không tạo được âm thanh tiếng Anh."
+            )
+
+        import numpy as np
+
+        audio = np.concatenate(audio_parts)
+        sample_rate = 24000
+
+    else:
+        engine = get_tts_engine()
+
+        audio = engine.infer(
+            text,
+            voice=voice or None,
+            style=style
+        )
+
+        sample_rate = engine.sample_rate
+
+    return audio, sample_rate
 
 @app.post("/api/auth/register")
 def register_user(data: RegisterRequest):
@@ -1029,6 +1111,220 @@ def text_to_speech(
             detail=(
                 "Không thể tạo giọng đọc AI. "
                 "Vui lòng kiểm tra model TTS."
+            )
+        ) from exc
+@app.post("/api/tts/dialogue")
+def dialogue_to_speech(
+    data: DialogueTTSRequest,
+    authorization: str | None = Header(default=None),
+    user=Depends(require_user)
+):
+    if len(data.speakers) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Hội thoại cần ít nhất 2 nhân vật."
+        )
+
+    speaker_map = {}
+
+    for speaker in data.speakers:
+        speaker_name = speaker.name.strip()
+
+        if not speaker_name:
+            raise HTTPException(
+                status_code=400,
+                detail="Tên nhân vật không được để trống."
+            )
+
+        if speaker_name in speaker_map:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Nhân vật bị trùng tên: {speaker_name}"
+            )
+
+        speaker_map[speaker_name] = speaker
+
+    pause_ms = max(
+        0,
+        min(data.pause_ms, 5000)
+    )
+
+    dialogue_lines = []
+
+    for line in data.lines:
+        speaker_name = line.speaker.strip()
+        text = line.text.strip()
+
+        if not text:
+            continue
+
+        if speaker_name not in speaker_map:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Không tìm thấy cấu hình giọng cho "
+                    f"nhân vật: {speaker_name}"
+                )
+            )
+
+        dialogue_lines.append(
+            (speaker_name, text)
+        )
+
+    if not dialogue_lines:
+        raise HTTPException(
+            status_code=400,
+            detail="Chưa có nội dung hội thoại."
+        )
+
+    total_characters = sum(
+        len(text)
+        for _, text in dialogue_lines
+    )
+
+    try:
+        from pydub import AudioSegment
+        import soundfile as sf
+
+        combined_audio = AudioSegment.empty()
+
+        with TTS_LOCK:
+            for index, (
+                speaker_name,
+                text
+            ) in enumerate(dialogue_lines):
+
+                speaker = speaker_map[speaker_name]
+
+                audio, sample_rate = synthesize_tts_segment(
+                    text=text,
+                    language=speaker.language,
+                    voice=speaker.voice,
+                    style=speaker.style
+                )
+
+                segment_buffer = io.BytesIO()
+
+                sf.write(
+                    segment_buffer,
+                    audio,
+                    sample_rate,
+                    format="WAV"
+                )
+
+                segment_buffer.seek(0)
+
+                segment = AudioSegment.from_wav(
+                    segment_buffer
+                )
+
+                combined_audio += segment
+
+                if (
+                    pause_ms > 0
+                    and index < len(dialogue_lines) - 1
+                ):
+                    silence = AudioSegment.silent(
+                        duration=pause_ms,
+                        frame_rate=segment.frame_rate
+                    )
+
+                    combined_audio += silence
+
+        output_buffer = io.BytesIO()
+
+        combined_audio.export(
+            output_buffer,
+            format="wav"
+        )
+
+        wav_bytes = output_buffer.getvalue()
+
+        access_token = authorization.split(
+            " ",
+            1
+        )[1].strip()
+
+        try:
+            usage_response = httpx.post(
+                f"{SUPABASE_URL}/rest/v1/rpc/consume_tts_usage",
+                headers={
+                    "apikey": SUPABASE_PUBLISHABLE_KEY,
+                    "Authorization":
+                        f"Bearer {access_token}",
+                    "Content-Type":
+                        "application/json"
+                },
+                json={
+                    "p_characters": total_characters
+                },
+                timeout=20.0
+            )
+
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Không thể kiểm tra hạn mức "
+                    "sử dụng."
+                )
+            ) from exc
+
+        if usage_response.status_code >= 400:
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "Không thể kiểm tra hạn mức "
+                    "ký tự."
+                )
+            )
+
+        try:
+            usage_result = usage_response.json()
+
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "Dữ liệu hạn mức không hợp lệ."
+                )
+            ) from exc
+
+        if not usage_result.get("ok", False):
+            remaining = int(
+                usage_result.get(
+                    "characters_remaining"
+                ) or 0
+            )
+
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Bạn đã vượt hạn mức ký tự "
+                    "tháng này. "
+                    f"Hiện chỉ còn {remaining} ký tự."
+                )
+            )
+
+        return Response(
+            content=wav_bytes,
+            media_type="audio/wav",
+            headers={
+                "Content-Disposition":
+                    'inline; filename="voxviet-ai-dialogue.wav"'
+            }
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Không thể tạo hội thoại AI. "
+                "Vui lòng kiểm tra giọng đọc "
+                "và nội dung kịch bản."
             )
         ) from exc
 @app.post("/api/text/clean")
