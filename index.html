@@ -838,6 +838,27 @@ textarea:focus {
            controls
            style="width:100%;margin-top:10px;display:none;">
     </audio>
+<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+  <button onclick="pauseDialogueTTS()" style="flex:1;">
+    ⏸ Tạm dừng
+  </button>
+
+  <button onclick="resumeDialogueTTS()" style="flex:1;">
+    ▶ Tiếp tục
+  </button>
+
+  <button onclick="stopDialogueTTS()" style="flex:1;">
+    ⏹ Dừng
+  </button>
+
+  <button onclick="downloadDialogueAudio('wav')" style="flex:1;">
+    ⬇ Tải WAV
+  </button>
+
+  <button onclick="downloadDialogueAudio('mp3')" style="flex:1;">
+    ⬇ Tải MP3
+  </button>
+</div>
 
   </div>
 </div>
@@ -3130,6 +3151,45 @@ async function generateDialogueTTS() {
     generateButton.textContent =
       "🎙 Tạo hội thoại AI";
   }
+}
+function pauseDialogueTTS() {
+  const audio =
+    document.getElementById("dialogueAudio");
+
+  if (!audio.paused) {
+    audio.pause();
+
+    showMessage(
+      "Đã tạm dừng hội thoại AI."
+    );
+  }
+}
+
+
+function resumeDialogueTTS() {
+  const audio =
+    document.getElementById("dialogueAudio");
+
+  if (audio.src) {
+    audio.play();
+
+    showMessage(
+      "Tiếp tục phát hội thoại AI."
+    );
+  }
+}
+
+
+function stopDialogueTTS() {
+  const audio =
+    document.getElementById("dialogueAudio");
+
+  audio.pause();
+  audio.currentTime = 0;
+
+  showMessage(
+    "Đã dừng hội thoại AI."
+  );
 }
 
 function pauseTTS() {
