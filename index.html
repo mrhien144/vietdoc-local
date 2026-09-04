@@ -796,6 +796,20 @@ textarea:focus {
     <div id="dialogueSpeakers"
          style="margin-top:12px;">
     </div>
+    <div id="dialogueLinePauses"
+         style="margin-top:12px;display:none;">
+
+      <label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;">
+        <input id="dialogueLinePauseToggle"
+               type="checkbox"
+               onchange="document.getElementById('dialogueLinePauseControls').style.display = this.checked ? 'block' : 'none';">
+        <span>Khoảng nghỉ từng lượt thoại</span>
+      </label>
+
+      <div id="dialogueLinePauseControls"
+           style="display:none;margin-top:8px;"></div>
+    </div>
+    </div>
 
     <div style="margin-top:12px;">
       <label for="dialoguePauseMs"
@@ -2364,7 +2378,8 @@ function prepareDialogueSpeakers() {
 
     currentDialogueLines.push({
       speaker: speaker,
-      text: text
+      text: text,
+      pause_ms: null
     });
 
     if (!speakerNames.includes(speaker)) {
@@ -2388,6 +2403,7 @@ function prepareDialogueSpeakers() {
     }));
 
     renderDialogueSpeakerControls();
+    renderDialogueLinePauseControls();
 
   showMessage(
     "Đã phân tích " +
@@ -2396,6 +2412,88 @@ function prepareDialogueSpeakers() {
     currentDialogueLines.length +
     " lượt thoại."
   );
+}
+function renderDialogueLinePauseControls() {
+  const panel =
+    document.getElementById("dialogueLinePauses");
+
+  const container =
+    document.getElementById("dialogueLinePauseControls");
+
+  container.innerHTML = "";
+
+  if (currentDialogueLines.length === 0) {
+    panel.style.display = "none";
+    return;
+  }
+
+  panel.style.display = "block";
+
+  currentDialogueLines.forEach((line, index) => {
+    const row = document.createElement("div");
+
+    row.style.padding = "8px";
+    row.style.marginBottom = "8px";
+    row.style.border = "1px solid #d1d5db";
+    row.style.borderRadius = "8px";
+
+    const label = document.createElement("div");
+
+    const shortText =
+      line.text.length > 70
+        ? line.text.slice(0, 70) + "..."
+        : line.text;
+
+    label.textContent =
+      (index + 1) + ". " +
+      line.speaker + " — " +
+      shortText;
+
+    label.style.fontSize = "13px";
+    label.style.marginBottom = "6px";
+
+    row.appendChild(label);
+
+    const input = document.createElement("input");
+
+    input.type = "number";
+    input.min = "0";
+    input.max = "5000";
+    input.step = "100";
+    input.placeholder = "Mặc định";
+    input.value =
+      line.pause_ms === null
+        ? ""
+        : String(line.pause_ms);
+
+    input.style.width = "100%";
+    input.style.padding = "8px";
+    input.style.borderRadius = "8px";
+    input.style.border = "1px solid #d1d5db";
+
+    input.onchange = () => {
+      if (input.value.trim() === "") {
+        line.pause_ms = null;
+        return;
+      }
+
+      let value = parseInt(input.value, 10);
+
+      if (Number.isNaN(value)) {
+        line.pause_ms = null;
+        input.value = "";
+        return;
+      }
+
+      value = Math.max(0, Math.min(value, 5000));
+
+      line.pause_ms = value;
+      input.value = String(value);
+    };
+
+    row.appendChild(input);
+    container.appendChild(row);
+  });
 }
 function renderDialogueSpeakerControls() {
   const container =

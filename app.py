@@ -50,6 +50,7 @@ class DialogueSpeaker(BaseModel):
 class DialogueLine(BaseModel):
     speaker: str
     text: str
+    pause_ms: int | None = None
 
 
 class DialogueTTSRequest(BaseModel):
@@ -1244,8 +1245,14 @@ def dialogue_to_speech(
                 )
             )
 
+            line_pause_ms = (
+            pause_ms
+            if line.pause_ms is None
+            else max(0, min(line.pause_ms, 5000))
+        )
+
         dialogue_lines.append(
-            (speaker_name, text)
+            (speaker_name, text, line_pause_ms)
         )
 
     if not dialogue_lines:
@@ -1256,7 +1263,7 @@ def dialogue_to_speech(
 
     total_characters = sum(
         len(text)
-        for _, text in dialogue_lines
+        for _, text, _ in dialogue_lines
     )
 
     try:
@@ -1268,7 +1275,8 @@ def dialogue_to_speech(
         with TTS_LOCK:
             for index, (
                 speaker_name,
-                text
+                text,
+                line_pause_ms
             ) in enumerate(dialogue_lines):
 
                 speaker = speaker_map[speaker_name]
@@ -1303,11 +1311,11 @@ def dialogue_to_speech(
                 combined_audio += segment
 
                 if (
-                    pause_ms > 0
+                    line_pause_ms > 0
                     and index < len(dialogue_lines) - 1
                 ):
                     silence = AudioSegment.silent(
-                        duration=pause_ms,
+                        duration=line_pause_ms,
                         frame_rate=segment.frame_rate
                     )
 
