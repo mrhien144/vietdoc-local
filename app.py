@@ -1,6 +1,8 @@
 from pathlib import Path
 import io
 import re
+import subprocess
+import imageio_ffmpeg
 from functools import lru_cache
 from threading import Lock
 import httpx
@@ -42,6 +44,7 @@ class DialogueSpeaker(BaseModel):
     language: str = "vi"
     voice: str | None = None
     style: str = "tu_nhien"
+    speed: float = 1.0
 
 
 class DialogueLine(BaseModel):
@@ -161,6 +164,80 @@ def synthesize_tts_segment(
 
     return audio, sample_rate
 
+def apply_audio_speed(
+    audio,
+    sample_rate: int,
+    speed: float = 1.0
+):
+    try:
+        speed = float(speed)
+    except (TypeError, ValueError):
+        speed = 1.0
+
+    speed = max(
+        0.75,
+        min(speed, 1.50)
+    )
+
+    if abs(speed - 1.0) < 0.001:
+        return audio, sample_rate
+
+    import soundfile as sf
+
+    input_buffer = io.BytesIO()
+
+    sf.write(
+        input_buffer,
+        audio,
+        sample_rate,
+        format="WAV"
+    )
+
+    ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+
+    command = [
+        ffmpeg_path,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        "pipe:0",
+        "-filter:a",
+        f"atempo={speed:.4f}",
+        "-f",
+        "wav",
+        "pipe:1"
+    ]
+
+    run_kwargs = {
+        "input": input_buffer.getvalue(),
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "check": True
+    }
+
+    if hasattr(
+        subprocess,
+        "CREATE_NO_WINDOW"
+    ):
+        run_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    result = subprocess.run(
+        command,
+        **run_kwargs
+    )
+
+    output_buffer = io.BytesIO(result.stdout)
+
+    processed_audio, processed_rate = sf.read(
+        output_buffer,
+        dtype="float32"
+    )
+
+    return (
+        processed_audio,
+        processed_rate
+    )
 @app.post("/api/auth/register")
 def register_user(data: RegisterRequest):
     email = data.email.strip().lower()
@@ -1203,6 +1280,11 @@ def dialogue_to_speech(
                     style=speaker.style
                 )
 
+                audio, sample_rate = apply_audio_speed(
+                    audio,
+                    sample_rate,
+                    speaker.speed
+            )
                 segment_buffer = io.BytesIO()
 
                 sf.write(

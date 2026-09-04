@@ -2531,7 +2531,35 @@ function renderDialogueSpeakerControls() {
       };
 
       card.appendChild(styleSelect);
+      const speedLabel = document.createElement("label");
+      speedLabel.textContent = "Tốc độ";
+      speedLabel.style.display = "block";
+      speedLabel.style.marginTop = "8px";
+      speedLabel.style.marginBottom = "4px";
 
+      card.appendChild(speedLabel);
+
+      const speedSelect = document.createElement("select");
+      speedSelect.id = "dialogueSpeed_" + index;
+      speedSelect.style.width = "100%";
+      speedSelect.style.padding = "9px";
+      speedSelect.style.borderRadius = "8px";
+      speedSelect.style.border = "1px solid #d1d5db";
+
+      speedSelect.innerHTML = `
+        <option value="0.75">0.75x - Chậm</option>
+        <option value="1">1.00x - Bình thường</option>
+        <option value="1.25">1.25x - Nhanh</option>
+        <option value="1.5">1.50x - Nhanh hơn</option>
+      `;
+
+      speedSelect.value = String(speaker.speed || 1.0);
+
+      speedSelect.onchange = () => {
+        speaker.speed = parseFloat(speedSelect.value);
+      };
+
+      card.appendChild(speedSelect);
       container.appendChild(card);
 
       loadDialogueVoicesForSpeaker(index);
