@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from auth_config import SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 UPDATE_MANIFEST_URL = "https://fgtqhfworgxnldoxgmbd.supabase.co/storage/v1/object/public/voxviet-updates/latest.json"
 
 app = FastAPI(

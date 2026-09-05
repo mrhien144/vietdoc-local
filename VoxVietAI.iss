@@ -1,5 +1,5 @@
 #define MyAppName "VoxViet AI"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppExeName "VoxVietAI.exe"
 
 [Setup]
@@ -11,7 +11,7 @@ DefaultDirName={autopf}\VoxViet AI
 DefaultGroupName=VoxViet AI
 DisableProgramGroupPage=yes
 OutputDir=installer
-OutputBaseFilename=VoxVietAI-Setup-1.0.0
+OutputBaseFilename=VoxVietAI-Setup-1.1.0
 SetupIconFile=voxviet-ai.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
