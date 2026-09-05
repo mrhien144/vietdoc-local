@@ -395,24 +395,34 @@ textarea:focus {
     <div class="auth-field">
       <label for="authEmail">Email</label>
       <input
-        id="authEmail"
-        type="email"
-        placeholder="Nhập email của bạn"
-        autocomplete="email">
+       id="authEmail"
+       type="email"
+       placeholder="Nhập email của bạn"
+       autocomplete="email"
+       onkeydown="if(event.key==='Enter'){event.preventDefault();submitAuth();}">
     </div>
 
     <div id="authPasswordField" class="auth-field">
       <label for="authPassword">Mật khẩu</label>
       <input
-        id="authPassword"
-        type="password"
-        placeholder="Nhập mật khẩu"
-        autocomplete="current-password">
+       id="authPassword"
+       type="password"
+       placeholder="Nhập mật khẩu"
+       autocomplete="current-password"
+       onkeydown="if(event.key==='Enter'){event.preventDefault();submitAuth();}">
     </div>
 
-    <div
+        <div
       id="forgotPasswordRow"
-      style="display:flex;justify-content:flex-end;margin-top:-6px;margin-bottom:12px;">
+      style="display:flex;justify-content:space-between;align-items:center;margin-top:-6px;margin-bottom:12px;">
+
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+        <input
+          id="rememberLogin"
+          type="checkbox">
+        <span>Lưu đăng nhập</span>
+      </label>
+
       <button
         id="forgotPasswordButton"
         type="button"
@@ -809,7 +819,6 @@ textarea:focus {
       <div id="dialogueLinePauseControls"
            style="display:none;margin-top:8px;"></div>
     </div>
-    </div>
 
     <div style="margin-top:12px;">
       <label for="dialoguePauseMs"
@@ -835,7 +844,8 @@ textarea:focus {
       🎙 Tạo hội thoại AI
     </button>
 
-    <div style="margin-top:10px;">
+    <div id="dialogueProgressSection"
+         style="margin-top:10px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
         <span>Tiến trình tạo hội thoại</span>
         <span id="dialogueProgressText">0%</span>
@@ -1604,6 +1614,61 @@ function showForgotPasswordForm() {
     "Nhập email đã đăng ký để nhận liên kết đặt lại mật khẩu."
   );
 }
+function clearStoredAuthSession() {
+  const keys = [
+    "voxviet_access_token",
+    "voxviet_refresh_token",
+    "voxviet_user_email"
+  ];
+
+  for (const key of keys) {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  }
+
+  localStorage.removeItem("voxviet_remember_login");
+}
+
+
+function saveAuthSession(result, email, rememberLogin) {
+  clearStoredAuthSession();
+
+  const storage =
+    rememberLogin ? localStorage : sessionStorage;
+
+  storage.setItem(
+    "voxviet_access_token",
+    result.access_token || ""
+  );
+
+  storage.setItem(
+    "voxviet_refresh_token",
+    result.refresh_token || ""
+  );
+
+  storage.setItem(
+    "voxviet_user_email",
+    result.user?.email || email
+  );
+
+  if (rememberLogin) {
+    localStorage.setItem(
+      "voxviet_remember_login",
+      "1"
+    );
+  }
+}
+
+
+function getAuthStorage() {
+  if (
+    localStorage.getItem("voxviet_remember_login") === "1"
+  ) {
+    return localStorage;
+  }
+
+  return sessionStorage;
+}
 async function submitAuth() {
   const email =
     document.getElementById("authEmail").value.trim();
@@ -1720,19 +1785,13 @@ async function submitAuth() {
       return;
     }
 
-    sessionStorage.setItem(
-      "voxviet_access_token",
-      result.access_token || ""
-    );
+    const rememberLogin =
+      document.getElementById("rememberLogin")?.checked === true;
 
-    sessionStorage.setItem(
-      "voxviet_refresh_token",
-      result.refresh_token || ""
-    );
-
-    sessionStorage.setItem(
-      "voxviet_user_email",
-      result.user?.email || email
+    saveAuthSession(
+      result,
+      email,
+      rememberLogin
     );
 
     document.getElementById("authScreen").style.display = "none";
@@ -1761,8 +1820,10 @@ async function submitAuth() {
   }
 }
 async function refreshAccessToken() {
+  const storage = getAuthStorage();
+
   const refreshToken =
-    sessionStorage.getItem("voxviet_refresh_token") || "";
+    storage.getItem("voxviet_refresh_token") || "";
 
   if (!refreshToken) {
     return "";
@@ -1783,20 +1844,19 @@ async function refreshAccessToken() {
 
     if (!response.ok || !result.access_token) {
       if (response.status === 400 || response.status === 401) {
-        sessionStorage.removeItem("voxviet_access_token");
-        sessionStorage.removeItem("voxviet_refresh_token");
+        clearStoredAuthSession();
       }
 
       return "";
     }
 
-    sessionStorage.setItem(
+    storage.setItem(
       "voxviet_access_token",
       result.access_token
     );
 
     if (result.refresh_token) {
-      sessionStorage.setItem(
+      storage.setItem(
         "voxviet_refresh_token",
         result.refresh_token
       );
@@ -1814,8 +1874,10 @@ async function refreshAccessToken() {
   }
 }
 async function authenticatedFetch(url, options = {}) {
+  const storage = getAuthStorage();
+
   let accessToken =
-    sessionStorage.getItem("voxviet_access_token") || "";
+    storage.getItem("voxviet_access_token") || "";
 
   if (!accessToken) {
     accessToken = await refreshAccessToken();
@@ -1955,11 +2017,111 @@ async function loadAppVersion() {
     );
   }
 }
+async function restoreSavedLogin() {
+  const rememberLogin =
+    localStorage.getItem("voxviet_remember_login") === "1";
+
+  const rememberCheckbox =
+    document.getElementById("rememberLogin");
+
+  if (rememberCheckbox) {
+    rememberCheckbox.checked = rememberLogin;
+  }
+
+  if (!rememberLogin) {
+    return;
+  }
+
+  const resetPasswordScreen =
+    document.getElementById("resetPasswordScreen");
+
+  if (
+    resetPasswordScreen &&
+    resetPasswordScreen.style.display === "flex"
+  ) {
+    return;
+  }
+
+  const storage = getAuthStorage();
+
+  const accessToken =
+    storage.getItem("voxviet_access_token") || "";
+
+  const refreshToken =
+    storage.getItem("voxviet_refresh_token") || "";
+
+  const savedEmail =
+    storage.getItem("voxviet_user_email") || "";
+
+  if (!accessToken && !refreshToken) {
+    clearStoredAuthSession();
+
+    if (rememberCheckbox) {
+      rememberCheckbox.checked = false;
+    }
+
+    return;
+  }
+
+  try {
+    const response = await authenticatedFetch(
+      "/api/account/profile",
+      {
+        method: "GET"
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Phiên đăng nhập không còn hợp lệ."
+      );
+    }
+
+    const profile = result.profile || {};
+
+    document.getElementById("authScreen").style.display =
+      "none";
+
+    document.getElementById("mainApp").style.display =
+      "flex";
+
+    document.getElementById("accountEmail").textContent =
+      profile.email || savedEmail;
+
+    await loadAccountProfile();
+    await loadAccountUsage();
+
+  } catch (error) {
+    console.error(
+      "Không thể khôi phục phiên đăng nhập:",
+      error
+    );
+
+    clearStoredAuthSession();
+
+    if (rememberCheckbox) {
+      rememberCheckbox.checked = false;
+    }
+
+    document.getElementById("mainApp").style.display =
+      "none";
+
+    document.getElementById("authScreen").style.display =
+      "flex";
+  }
+}
 
 function logoutUser() {
-  sessionStorage.removeItem("voxviet_access_token");
-  sessionStorage.removeItem("voxviet_refresh_token");
-  sessionStorage.removeItem("voxviet_user_email");
+  clearStoredAuthSession();
+
+  const rememberCheckbox =
+    document.getElementById("rememberLogin");
+
+  if (rememberCheckbox) {
+    rememberCheckbox.checked = false;
+  }
 
   document.getElementById("mainApp").style.display = "none";
   document.getElementById("authScreen").style.display = "flex";
@@ -2308,14 +2470,18 @@ function showTTSMode(mode) {
 
   const dialogueButton =
     document.getElementById("dialogueTTSModeButton");
+  const dialogueProgressSection =
+    document.getElementById("dialogueProgressSection");
 
   if (mode === "dialogue") {
+    dialogueProgressSection.style.display = "block";
     singlePanel.style.display = "none";
     dialoguePanel.style.display = "block";
 
     singleButton.classList.remove("ai");
     dialogueButton.classList.add("ai");
   } else {
+    dialogueProgressSection.style.display = "none";
     singlePanel.style.display = "block";
     dialoguePanel.style.display = "none";
 
@@ -3426,7 +3592,18 @@ function stopTTS() {
 
 document.addEventListener(
   "DOMContentLoaded",
-  loadTTSVoices
+  async () => {
+    await restoreSavedLogin();
+
+    try {
+      await loadTTSVoices();
+    } catch (error) {
+      console.error(
+        "Không thể tải danh sách giọng khi khởi động:",
+        error
+      );
+    }
+  }
 );
 
 

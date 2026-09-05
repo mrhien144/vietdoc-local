@@ -221,4 +221,18 @@ if __name__ == "__main__":
         js_api=api
     )
 
-    webview.start()
+    storage_path = (
+        Path(os.getenv("LOCALAPPDATA", Path.home()))
+        / "VoxVietAI"
+        / "WebViewStorage"
+    )
+
+    storage_path.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    webview.start(
+        private_mode=False,
+        storage_path=str(storage_path)
+    )
