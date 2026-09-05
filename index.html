@@ -2658,6 +2658,18 @@ function renderDialogueSpeakerControls() {
       };
 
       card.appendChild(speedSelect);
+      const previewButton = document.createElement("button");
+
+      previewButton.type = "button";
+      previewButton.textContent = "▶ Nghe thử giọng";
+      previewButton.style.width = "100%";
+      previewButton.style.marginTop = "10px";
+
+      previewButton.onclick = () => {
+        previewDialogueVoice(index, previewButton);
+      };
+
+      card.appendChild(previewButton);
       container.appendChild(card);
 
       loadDialogueVoicesForSpeaker(index);
@@ -2665,7 +2677,71 @@ function renderDialogueSpeakerControls() {
   );
 }
 
+async function previewDialogueVoice(index, button) {
+  const speaker = currentDialogueSpeakers[index];
 
+  if (!speaker || !speaker.voice) {
+    showMessage("Vui lòng chọn giọng trước khi nghe thử.");
+    return;
+  }
+
+  const oldText = button.textContent;
+
+  try {
+    button.disabled = true;
+    button.textContent = "⏳ Đang tạo giọng thử...";
+
+    const response = await authenticatedFetch(
+      "/api/tts/dialogue/preview",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          language: speaker.language || "vi",
+          voice: speaker.voice,
+          style: speaker.style || "tu_nhien",
+          speed: speaker.speed || 1.0
+        })
+      }
+    );
+
+    if (!response.ok) {
+      let detail = "Không thể nghe thử giọng.";
+
+      try {
+        const errorData = await response.json();
+        detail = errorData.detail || detail;
+      } catch (_) {
+      }
+
+      throw new Error(detail);
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+    };
+
+    audio.onerror = () => {
+      URL.revokeObjectURL(url);
+    };
+
+    await audio.play();
+
+  } catch (error) {
+    showMessage(
+      error.message || "Không thể nghe thử giọng AI."
+    );
+  } finally {
+    button.disabled = false;
+    button.textContent = oldText;
+  }
+}
 async function loadDialogueVoicesForSpeaker(index) {
   const speaker =
     currentDialogueSpeakers[index];

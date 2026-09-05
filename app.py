@@ -46,6 +46,12 @@ class DialogueSpeaker(BaseModel):
     style: str = "tu_nhien"
     speed: float = 1.0
 
+class DialogueVoicePreviewRequest(BaseModel):
+    language: str = "vi"
+    voice: str | None = None
+    style: str = "tu_nhien"
+    speed: float = 1.0
+
 
 class DialogueLine(BaseModel):
     speaker: str
@@ -1191,6 +1197,66 @@ def text_to_speech(
                 "Vui lòng kiểm tra model TTS."
             )
         ) from exc
+@app.post("/api/tts/dialogue/preview")
+def preview_dialogue_voice(
+    data: DialogueVoicePreviewRequest,
+    user=Depends(require_user)
+):
+    if not data.voice:
+        raise HTTPException(
+            status_code=400,
+            detail="Chưa chọn giọng để nghe thử."
+        )
+
+    sample_text = (
+        "Hello, this is a preview of my voice."
+        if data.language == "en"
+        else "Xin chào, đây là giọng đọc thử của VoxViet AI."
+    )
+
+    try:
+        import soundfile as sf
+
+        with TTS_LOCK:
+            audio, sample_rate = synthesize_tts_segment(
+                text=sample_text,
+                language=data.language,
+                voice=data.voice,
+                style=data.style
+            )
+
+            audio, sample_rate = apply_audio_speed(
+                audio,
+                sample_rate,
+                data.speed
+            )
+
+        buffer = io.BytesIO()
+
+        sf.write(
+            buffer,
+            audio,
+            sample_rate,
+            format="WAV"
+        )
+
+        return Response(
+            content=buffer.getvalue(),
+            media_type="audio/wav",
+            headers={
+                "Content-Disposition":
+                    'inline; filename="voxviet-ai-preview.wav"'
+            }
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Không thể nghe thử giọng AI: {exc}"
+        ) from exc
 @app.post("/api/tts/dialogue")
 def dialogue_to_speech(
     data: DialogueTTSRequest,
@@ -1245,7 +1311,7 @@ def dialogue_to_speech(
                 )
             )
 
-            line_pause_ms = (
+        line_pause_ms = (
             pause_ms
             if line.pause_ms is None
             else max(0, min(line.pause_ms, 5000))
