@@ -224,7 +224,7 @@ if __name__ == "__main__":
     storage_path = (
         Path(os.getenv("LOCALAPPDATA", Path.home()))
         / "VoxVietAI"
-        / "WebViewStorage"
+        / "WebViewStorage-v1.1"
     )
 
     storage_path.mkdir(

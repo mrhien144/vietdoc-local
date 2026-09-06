@@ -33,8 +33,8 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 Source: "dist\VoxVietAI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\VoxViet AI"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\VoxViet AI"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\VoxViet AI"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\VoxViet AI"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch VoxViet AI"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Description: "Launch VoxViet AI"; Flags: nowait postinstall skipifsilent
